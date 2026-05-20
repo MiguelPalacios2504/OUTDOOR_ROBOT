@@ -36,3 +36,9 @@ Thumbs.db
 # --- Large / machine-local artifacts (uncomment if you use them in-tree) ---
 # *.bag
 # *.mcap
+
+# Vendored via: vcs import src < bot_sources.repos
+src/csm/
+src/ros2_laser_scan_matcher/
+
+debug_logs/
