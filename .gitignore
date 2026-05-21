@@ -37,7 +37,7 @@ Thumbs.db
 # *.bag
 # *.mcap
 
-# Vendored via: vcs import src < bot_sources.repos
+# Optional local clones (development branch only; not used on 3d_development)
 src/csm/
 src/ros2_laser_scan_matcher/
 
