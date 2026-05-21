@@ -37,8 +37,4 @@ Thumbs.db
 # *.bag
 # *.mcap
 
-# Optional local clones (development branch only; not used on 3d_development)
-src/csm/
-src/ros2_laser_scan_matcher/
-
 debug_logs/
