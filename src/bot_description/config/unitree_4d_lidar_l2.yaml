@@ -29,15 +29,17 @@ unitree_4d_lidar_l2:
     - ethernet_udp
     - ttl_uart
 
-  # gpu_lidar ray grid derived from datasheet (points/s, scan Hz, vertical scan Hz).
+  # gpu_lidar ray grid: datasheet-derived counts (591x39). Reduced in sim for GPU/bridge startup.
   gazebo:
     topic: /lidar/points
     frame_id: lidar_link
     update_rate_hz: 5.55
-    # vertical lines per 360° sweep ≈ vertical_scan_hz / scan_frequency_hz
-    vertical_samples: 39
-    # horizontal rays per ring ≈ points_per_second / scan_frequency_hz / vertical_samples
-    horizontal_samples: 591
+    # Datasheet full grid: vertical 39, horizontal 591 (enable after bridge works on your GPU).
+    # vertical_samples: 39
+    # horizontal_samples: 591
+    # Sim default (lighter GPU lidar, same FOV/rates):
+    vertical_samples: 24
+    horizontal_samples: 360
     horizontal_min_angle_rad: -3.141592653589793
     horizontal_max_angle_rad: 3.141592653589793
     vertical_min_angle_rad: -0.8377580409573661   # -48° (half of 96° VFOV)

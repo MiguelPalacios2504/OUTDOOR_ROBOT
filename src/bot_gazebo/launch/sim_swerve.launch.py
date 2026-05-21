@@ -7,6 +7,7 @@ from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
+    LogInfo,
     RegisterEventHandler,
     SetEnvironmentVariable,
 )
@@ -118,19 +119,15 @@ def generate_launch_description():
         }.items(),
     )
 
+    bridge_config = gazebo_share / "config" / "ros_gz_bridge.yaml"
+
     sim_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
         name="sim_bridge",
         output="screen",
-        arguments=[
-            "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
-            "/imu/data@sensor_msgs/msg/Imu[gz.msgs.IMU",
-            "/ground_truth/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry",
-            "/lidar/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked",
-            "/camera/image@sensor_msgs/msg/Image@gz.msgs.Image",
-            "/camera/depth_image@sensor_msgs/msg/Image@gz.msgs.Image",
-            "/camera/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo",
+        parameters=[
+            {"use_sim_time": True, "config_file": str(bridge_config)},
         ],
     )
 
@@ -218,9 +215,16 @@ def generate_launch_description():
         OnProcessExit(target_action=joint_state_broadcaster, on_exit=[wheel_velocity_controller])
     )
 
+    lidar_topic = unitree_l2["gazebo"]["topic"]
+    lidar_ready_msg = (
+        f"Unitree L2 gpu_lidar on {lidar_topic}: wait until Gazebo is playing (not paused), "
+        "then 20-40 s for the first PointCloud2. Check: ros2 topic hz {lidar_topic}"
+    )
+
     return LaunchDescription(
         [
             set_gz_resource_path,
+            LogInfo(msg=lidar_ready_msg),
             DeclareLaunchArgument(
                 "use_lidar",
                 default_value=str(sim_defaults.get("use_lidar", True)).lower(),

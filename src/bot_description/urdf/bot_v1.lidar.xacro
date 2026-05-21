@@ -61,6 +61,8 @@
           <always_on>1</always_on>
           <update_rate>${update_rate}</update_rate>
           <topic>${topic}</topic>
+          <!-- Harmonic: both tags required for gpu_lidar + ros_gz_bridge -->
+          <frame_id>${frame_id}</frame_id>
           <gz_frame_id>${frame_id}</gz_frame_id>
           <lidar>
             <scan>
