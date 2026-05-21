@@ -95,7 +95,7 @@ def generate_launch_description():
             "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
             "/imu/data@sensor_msgs/msg/Imu[gz.msgs.IMU",
             "/ground_truth/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry",
-            "/scan@sensor_msgs/msg/LaserScan@gz.msgs.LaserScan",
+            "/lidar/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked",
             "/camera/image@sensor_msgs/msg/Image@gz.msgs.Image",
             "/camera/depth_image@sensor_msgs/msg/Image@gz.msgs.Image",
             "/camera/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo",
@@ -192,7 +192,7 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "use_lidar",
                 default_value=str(sim_defaults.get("use_lidar", True)).lower(),
-                description="Enable 2D lidar in URDF and bridge /scan.",
+                description="Enable Unitree L2-style 3D lidar in URDF and bridge /lidar/points.",
             ),
             DeclareLaunchArgument(
                 "use_camera",

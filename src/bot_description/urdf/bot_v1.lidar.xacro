@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Unitree 4D-LiDAR L2 (sim approximation): 360° x 96° FOV, 0.05-30 m, gpu_lidar -> PointCloud2 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:macro
     name="bot_lidar"
@@ -7,35 +8,38 @@
       xyz:='0 0 0.15'
       rpy:='0 0 0'
       add_gazebo:=false
-      topic:=/scan
-      update_rate:=15.0
-      sample_count:=720
+      topic:=/lidar/points
+      update_rate:=10.0
+      horizontal_samples:=360
+      vertical_samples:=32
       min_angle:=-3.14159
       max_angle:=3.14159
-      min_range:=0.10
-      max_range:=12.0">
+      vertical_min_angle:=-0.837758041
+      vertical_max_angle:=0.837758041
+      min_range:=0.05
+      max_range:=30.0">
 
     <link name="lidar_link">
       <inertial>
         <origin xyz="0 0 0" rpy="0 0 0" />
-        <mass value="0.15" />
-        <inertia ixx="1e-4" ixy="0.0" ixz="0.0" iyy="1e-4" iyz="0.0" izz="1e-4" />
+        <mass value="0.23" />
+        <inertia ixx="2e-4" ixy="0.0" ixz="0.0" iyy="2e-4" iyz="0.0" izz="2e-4" />
       </inertial>
 
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
-          <cylinder radius="0.035" length="0.05" />
+          <box size="0.075 0.075 0.065" />
         </geometry>
         <material name="lidar_gray">
-          <color rgba="0.2 0.2 0.2 1.0" />
+          <color rgba="0.15 0.15 0.15 1.0" />
         </material>
       </visual>
 
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
-          <cylinder radius="0.035" length="0.05" />
+          <box size="0.075 0.075 0.065" />
         </geometry>
       </collision>
     </link>
@@ -48,7 +52,7 @@
 
     <xacro:if value="${add_gazebo}">
       <gazebo reference="lidar_link">
-        <sensor name="lidar_sensor" type="gpu_lidar">
+        <sensor name="unitree_l2_lidar" type="gpu_lidar">
           <always_on>1</always_on>
           <update_rate>${update_rate}</update_rate>
           <topic>${topic}</topic>
@@ -56,21 +60,27 @@
           <lidar>
             <scan>
               <horizontal>
-                <samples>${sample_count}</samples>
+                <samples>${horizontal_samples}</samples>
                 <resolution>1</resolution>
                 <min_angle>${min_angle}</min_angle>
                 <max_angle>${max_angle}</max_angle>
               </horizontal>
+              <vertical>
+                <samples>${vertical_samples}</samples>
+                <resolution>1</resolution>
+                <min_angle>${vertical_min_angle}</min_angle>
+                <max_angle>${vertical_max_angle}</max_angle>
+              </vertical>
             </scan>
             <range>
               <min>${min_range}</min>
               <max>${max_range}</max>
-              <resolution>0.01</resolution>
+              <resolution>0.0045</resolution>
             </range>
             <noise>
               <type>gaussian</type>
               <mean>0.0</mean>
-              <stddev>0.005</stddev>
+              <stddev>0.02</stddev>
             </noise>
           </lidar>
           <visualize>true</visualize>

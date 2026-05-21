@@ -1,6 +1,8 @@
 # bot_gazebo
 
-Gazebo Sim, robot spawn, `ros2_control`, sensor bridges (lidar + camera), and swerve control.
+Gazebo Sim, robot spawn, `ros2_control`, sensor bridges (3D lidar + camera), and swerve control.
+
+3D LiDAR simulates a **Unitree 4D-LiDAR L2** (360° × 96° FOV, 0.05–30 m) and publishes `sensor_msgs/PointCloud2` on `/lidar/points`.
 
 ## Launch
 

@@ -35,6 +35,8 @@ ros2 launch bot_gazebo sim_swerve.launch.py
 
 Optional: `use_lidar:=true`, `use_camera:=true` (defaults in `bot_gazebo/config/sim_swerve.yaml`).
 
+3D LiDAR (Unitree 4D-LiDAR L2 model in sim): topic `/lidar/points` (`sensor_msgs/PointCloud2`), frame `lidar_link`.
+
 Visualize the model without Gazebo:
 
 ```bash
