@@ -25,6 +25,14 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
+On `3d_development`, use a **fresh** overlay after switching branches (stale `install/bot_planning` breaks Gazebo launch):
+
+```bash
+rm -rf build install log
+colcon build --symlink-install
+source install/setup.bash   # new terminal or re-source after clean
+```
+
 ---
 
 ## Simulation
