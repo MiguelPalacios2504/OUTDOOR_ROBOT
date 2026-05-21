@@ -10,10 +10,9 @@ from launch.actions import (
     RegisterEventHandler,
     SetEnvironmentVariable,
 )
-from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import Command, LaunchConfiguration, PythonExpression
+from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -33,7 +32,6 @@ def generate_launch_description():
     description_share = Path(get_package_share_directory("bot_description"))
     control_share = Path(get_package_share_directory("bot_control"))
     gazebo_share = Path(get_package_share_directory("bot_gazebo"))
-    localization_share = Path(get_package_share_directory("bot_localization"))
     ros_gz_share = Path(get_package_share_directory("ros_gz_sim"))
     sim_defaults = load_sim_defaults(gazebo_share)
 
@@ -45,12 +43,6 @@ def generate_launch_description():
     world_file = LaunchConfiguration("world_file")
     use_lidar = LaunchConfiguration("use_lidar")
     use_camera = LaunchConfiguration("use_camera")
-    enable_localization = LaunchConfiguration("enable_localization")
-    enable_laser_odometry = LaunchConfiguration("enable_laser_odometry")
-    enable_slam = LaunchConfiguration("enable_slam")
-    enable_saved_map_localization = LaunchConfiguration("enable_saved_map_localization")
-    enable_nav2 = LaunchConfiguration("enable_nav2")
-    map_yaml_file = LaunchConfiguration("map_yaml_file")
     spawn_x = LaunchConfiguration("spawn_x")
     spawn_y = LaunchConfiguration("spawn_y")
     spawn_z = LaunchConfiguration("spawn_z")
@@ -173,32 +165,6 @@ def generate_launch_description():
         ],
     )
 
-    localization = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(str(localization_share / "launch" / "localization.launch.py")),
-        launch_arguments={
-            "enable_laser_odometry": enable_laser_odometry,
-            "enable_slam": enable_slam,
-            "enable_saved_map_localization": enable_saved_map_localization,
-            "map_yaml_file": map_yaml_file,
-        }.items(),
-        condition=IfCondition(enable_localization),
-    )
-
-    navigation = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(str(localization_share / "launch" / "nav2.launch.py")),
-        condition=IfCondition(
-            PythonExpression(
-                [
-                    "'",
-                    enable_nav2,
-                    "' == 'true' and '",
-                    enable_saved_map_localization,
-                    "' == 'true'",
-                ]
-            )
-        ),
-    )
-
     resource_roots = [str(description_share.parent), str(gazebo_share.parent)]
     existing_resource_path = os.environ.get("GZ_SIM_RESOURCE_PATH", "")
     gz_resource_path = os.pathsep.join(
@@ -225,51 +191,18 @@ def generate_launch_description():
             set_gz_resource_path,
             DeclareLaunchArgument(
                 "use_lidar",
-                default_value=str(sim_defaults.get("use_lidar", False)).lower(),
-                description="Enable the modular 2D lidar overlay and bridge /scan.",
+                default_value=str(sim_defaults.get("use_lidar", True)).lower(),
+                description="Enable 2D lidar in URDF and bridge /scan.",
+            ),
+            DeclareLaunchArgument(
+                "use_camera",
+                default_value=str(sim_defaults.get("use_camera", True)).lower(),
+                description="Enable RGB-D camera in URDF and bridge /camera/* topics.",
             ),
             DeclareLaunchArgument(
                 "world_file",
                 default_value=world_default,
                 description="Absolute path to the Gazebo world file.",
-            ),
-            DeclareLaunchArgument(
-                "use_camera",
-                default_value=str(sim_defaults.get("use_camera", False)).lower(),
-                description=(
-                    "Enable simulated Intel RealSense D405-like RGB-D "
-                    "(1280x720, 7-50 cm, /camera/* topics)."
-                ),
-            ),
-            DeclareLaunchArgument(
-                "enable_localization",
-                default_value=str(sim_defaults.get("enable_localization", True)).lower(),
-                description="Start the default wheel+IMU localization stack.",
-            ),
-            DeclareLaunchArgument(
-                "enable_laser_odometry",
-                default_value=str(sim_defaults.get("enable_laser_odometry", True)).lower(),
-                description="Enable laser odometry publishing and fuse /laser/odom into the EKF.",
-            ),
-            DeclareLaunchArgument(
-                "enable_slam",
-                default_value=str(sim_defaults.get("enable_slam", False)).lower(),
-                description="Enable slam_toolbox inside the single localization launch.",
-            ),
-            DeclareLaunchArgument(
-                "enable_saved_map_localization",
-                default_value=str(sim_defaults.get("enable_saved_map_localization", False)).lower(),
-                description="Enable nav2_map_server + AMCL in the localization launch.",
-            ),
-            DeclareLaunchArgument(
-                "enable_nav2",
-                default_value=str(sim_defaults.get("enable_nav2", False)).lower(),
-                description="Enable Nav2 on top of saved-map localization.",
-            ),
-            DeclareLaunchArgument(
-                "map_yaml_file",
-                default_value=str(localization_share / "maps" / "arena_map.yaml"),
-                description="Absolute path to the saved-map YAML for AMCL localization.",
             ),
             DeclareLaunchArgument(
                 "spawn_x",
@@ -310,7 +243,5 @@ def generate_launch_description():
             load_wheel_controller,
             swerve_cmd_node,
             joint_command_bridge,
-            localization,
-            navigation,
         ]
     )

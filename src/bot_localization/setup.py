@@ -12,12 +12,11 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", [f"resource/{package_name}"]),
         (f"share/{package_name}", ["package.xml"]),
-        (f"share/{package_name}/config", ["config/localization.yaml", "config/nav2.yaml"]),
+        (f"share/{package_name}/config", ["config/localization.yaml"]),
         (
             f"share/{package_name}/launch",
             [
                 "launch/localization.launch.py",
-                "launch/nav2.launch.py",
                 "launch/localization_rviz.launch.py",
             ],
         ),
@@ -34,7 +33,7 @@ setup(
     zip_safe=True,
     maintainer="aditya",
     maintainer_email="kotteaditya919@gmail.com",
-    description="Localization and sensor fusion nodes for the ITQ robot platform.",
+    description="State estimation, mapping, and map-based pose for the ITQ bot platform.",
     license="TODO: License declaration",
     entry_points={
         "console_scripts": [

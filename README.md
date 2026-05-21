@@ -11,7 +11,8 @@ src/
 ├── bot_description/   # URDF/Xacro, meshes, RViz
 ├── bot_control/       # Swerve kinematics, cmd + joint bridge
 ├── bot_gazebo/        # Gazebo Sim, ros2_control, simulation launch
-├── bot_localization/    # EKF, laser odom, SLAM, Nav2 hooks
+├── bot_localization/  # EKF, laser odom, SLAM, AMCL
+├── bot_planning/      # Nav2 planner, controller, behaviors
 └── bot_debug/         # CSV logging and plotting tools
 ```
 
@@ -43,19 +44,29 @@ The clean model is `bot_v1.urdf.xacro`; Gazebo and `ros2_control` are in `bot_v1
 
 ## `bot_gazebo`
 
-**Role:** Simulation bring-up (Gazebo Sim, bridges, controller spawners).
+**Role:** Gazebo Sim only — robot, lidar, camera, `ros2_control`, swerve control. **No** SLAM, AMCL, or Nav2.
 
 **Main launch:** `ros2 launch bot_gazebo sim_swerve.launch.py`
 
-**Helper script:** `ros2 run bot_gazebo sim_with_logging`
+See `src/bot_gazebo/README.md` for the multi-terminal workflow.
 
 ---
 
 ## `bot_localization`
 
-**Role:** Sensor fusion and mapping stack (wheel + IMU EKF, optional laser odometry, SLAM, AMCL, Nav2).
+**Role:** State estimation and map-based pose (EKF, laser odom, SLAM, AMCL). Run in a **second terminal** after sim.
 
-**Main launch:** included from `sim_swerve.launch.py` when `enable_localization:=true`.
+**Main launch:** `ros2 launch bot_localization localization.launch.py`
+
+---
+
+## `bot_planning`
+
+**Role:** Nav2 planning and control. Run in a **third terminal** after localization.
+
+**Main launch:** `ros2 launch bot_planning navigation.launch.py use_sim_time:=true`
+
+Contract: `src/bot_planning/INTERFACE.md`
 
 ---
 
@@ -82,12 +93,26 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-### Simulation example
+### Operación en 4 terminales (reemplaza el launch único antiguo)
+
+**Antes (todo en uno):**
 
 ```bash
-source install/setup.bash
-ros2 launch bot_gazebo sim_swerve.launch.py
+ros2 launch bot_gazebo sim_swerve.launch.py \
+  enable_slam:=false enable_saved_map_localization:=true enable_nav2:=true \
+  enable_laser_odometry:=true use_camera:=true
 ```
+
+**Ahora** — mismo comportamiento, en este orden (cada terminal: `cd OUTDOOR_ROBOT && source install/setup.bash`):
+
+| # | Qué | Comando |
+|---|-----|---------|
+| 1 | Robot, Gazebo, controladores, lidar, cámara | `ros2 launch bot_gazebo sim_swerve.launch.py use_camera:=true` |
+| 2 | Localización (EKF, laser odom, AMCL en mapa) | `ros2 launch bot_localization localization.launch.py enable_slam:=false enable_saved_map_localization:=true enable_laser_odometry:=true map_yaml_file:=$(pwd)/maps/arena_map.yaml` |
+| 3 | Navegación (Nav2) | `ros2 launch bot_planning navigation.launch.py use_sim_time:=true` |
+| 4 | RViz | `ros2 launch bot_localization localization_rviz.launch.py` |
+
+Espera a que el terminal 1 muestre Gazebo y controladores activos antes de lanzar el 2; espera mapa + AMCL antes del 3.
 
 ---
 

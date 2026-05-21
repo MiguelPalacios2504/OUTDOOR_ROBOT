@@ -83,6 +83,7 @@ bt_navigator:
     use_sim_time: true
     global_frame: map
     robot_base_frame: base_footprint
+    # Fused state from bot_localization EKF (not raw /laser/odom).
     odom_topic: /odometry/filtered
     bt_loop_duration: 10
     default_server_timeout: 20
@@ -167,10 +168,16 @@ global_costmap:
       resolution: 0.05
       track_unknown_space: true
       footprint: "[[0.26, 0.22], [0.26, -0.22], [-0.26, -0.22], [-0.26, 0.22]]"
-      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      plugins: ["static_layer", "terrain_layer", "obstacle_layer", "inflation_layer"]
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: true
+      terrain_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: true
+        map_topic: /terrain_costmap
+        trinary_costmap: false
+        lethal_cost_threshold: 100
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
