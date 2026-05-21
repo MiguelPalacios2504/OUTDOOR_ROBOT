@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Unitree 4D-LiDAR L2 (sim approximation): 360° x 96° FOV, 0.05-30 m, gpu_lidar -> PointCloud2 -->
+<!-- Unitree 4D-LiDAR L2 — defaults match config/unitree_4d_lidar_l2.yaml (datasheet). -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:macro
     name="bot_lidar"
@@ -9,37 +9,42 @@
       rpy:='0 0 0'
       add_gazebo:=false
       topic:=/lidar/points
-      update_rate:=10.0
-      horizontal_samples:=360
-      vertical_samples:=32
-      min_angle:=-3.14159
-      max_angle:=3.14159
-      vertical_min_angle:=-0.837758041
-      vertical_max_angle:=0.837758041
+      frame_id:=lidar_link
+      update_rate:=5.55
+      horizontal_samples:=591
+      vertical_samples:=39
+      min_angle:=-3.141592653589793
+      max_angle:=3.141592653589793
+      vertical_min_angle:=-0.8377580409573661
+      vertical_max_angle:=0.8377580409573661
       min_range:=0.05
-      max_range:=30.0">
+      max_range:=30.0
+      range_resolution:=0.0045
+      noise_stddev:=0.02
+      size_xyz:='0.075 0.075 0.065'
+      mass:=0.23">
 
-    <link name="lidar_link">
+    <link name="${frame_id}">
       <inertial>
         <origin xyz="0 0 0" rpy="0 0 0" />
-        <mass value="0.23" />
+        <mass value="${mass}" />
         <inertia ixx="2e-4" ixy="0.0" ixz="0.0" iyy="2e-4" iyz="0.0" izz="2e-4" />
       </inertial>
 
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
-          <box size="0.075 0.075 0.065" />
+          <box size="${size_xyz}" />
         </geometry>
-        <material name="lidar_gray">
-          <color rgba="0.15 0.15 0.15 1.0" />
+        <material name="unitree_l2_gray">
+          <color rgba="0.12 0.12 0.12 1.0" />
         </material>
       </visual>
 
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
-          <box size="0.075 0.075 0.065" />
+          <box size="${size_xyz}" />
         </geometry>
       </collision>
     </link>
@@ -47,16 +52,16 @@
     <joint name="lidar_joint" type="fixed">
       <origin xyz="${xyz}" rpy="${rpy}" />
       <parent link="${parent}" />
-      <child link="lidar_link" />
+      <child link="${frame_id}" />
     </joint>
 
     <xacro:if value="${add_gazebo}">
-      <gazebo reference="lidar_link">
-        <sensor name="unitree_l2_lidar" type="gpu_lidar">
+      <gazebo reference="${frame_id}">
+        <sensor name="unitree_4d_lidar_l2" type="gpu_lidar">
           <always_on>1</always_on>
           <update_rate>${update_rate}</update_rate>
           <topic>${topic}</topic>
-          <gz_frame_id>lidar_link</gz_frame_id>
+          <gz_frame_id>${frame_id}</gz_frame_id>
           <lidar>
             <scan>
               <horizontal>
@@ -75,12 +80,12 @@
             <range>
               <min>${min_range}</min>
               <max>${max_range}</max>
-              <resolution>0.0045</resolution>
+              <resolution>${range_resolution}</resolution>
             </range>
             <noise>
               <type>gaussian</type>
               <mean>0.0</mean>
-              <stddev>0.02</stddev>
+              <stddev>${noise_stddev}</stddev>
             </noise>
           </lidar>
           <visualize>true</visualize>

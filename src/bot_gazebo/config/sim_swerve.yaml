@@ -5,7 +5,7 @@ sim_swerve:
   # Subdirectory under the workspace root where sim launch logs should be written.
   runtime_log_subdir: debug_logs/launch_output
 
-  # 3D lidar (Unitree L2 model): URDF overlay + /lidar/points PointCloud2 bridge.
+  # Unitree 4D-LiDAR L2 (datasheet: config/unitree_4d_lidar_l2.yaml) + /lidar/points bridge.
   use_lidar: true
 
   # RGB-D camera: URDF overlay + /camera/* bridge (~7 GB RAM/GPU if enabled).

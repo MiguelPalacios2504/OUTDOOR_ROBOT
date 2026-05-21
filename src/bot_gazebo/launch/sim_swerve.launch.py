@@ -28,12 +28,43 @@ def load_sim_defaults(gazebo_share: Path) -> dict:
     return defaults
 
 
+def load_unitree_l2_config(description_share: Path) -> dict:
+    config_path = description_share / "config" / "unitree_4d_lidar_l2.yaml"
+    with config_path.open("r", encoding="utf-8") as config_file:
+        data = yaml.safe_load(config_file) or {}
+
+    l2 = data.get("unitree_4d_lidar_l2", {})
+    if not isinstance(l2, dict):
+        raise ValueError(f"unitree_4d_lidar_l2 section in {config_path} must be a mapping")
+    return l2
+
+
+def unitree_l2_xacro_mappings(l2: dict) -> list[str]:
+    gazebo = l2["gazebo"]
+    mechanical = l2["mechanical"]
+    size_xyz = " ".join(str(v) for v in mechanical["size_xyz_m"])
+    return [
+        f" lidar_topic:={gazebo['topic']}",
+        f" lidar_frame_id:={gazebo['frame_id']}",
+        f" lidar_update_rate:={gazebo['update_rate_hz']}",
+        f" lidar_horizontal_samples:={gazebo['horizontal_samples']}",
+        f" lidar_vertical_samples:={gazebo['vertical_samples']}",
+        f" lidar_min_range:={l2['optical']['range_min_m']}",
+        f" lidar_max_range:={l2['optical']['range_max_m']}",
+        f" lidar_range_resolution:={l2['optical']['range_resolution_m']}",
+        f" lidar_noise_stddev:={gazebo['noise_stddev_m']}",
+        f" lidar_size_xyz:={size_xyz}",
+        f" lidar_mass:={mechanical['mass_kg']}",
+    ]
+
+
 def generate_launch_description():
     description_share = Path(get_package_share_directory("bot_description"))
     control_share = Path(get_package_share_directory("bot_control"))
     gazebo_share = Path(get_package_share_directory("bot_gazebo"))
     ros_gz_share = Path(get_package_share_directory("ros_gz_sim"))
     sim_defaults = load_sim_defaults(gazebo_share)
+    unitree_l2 = load_unitree_l2_config(description_share)
 
     xacro_path = description_share / "urdf" / "bot_v1.gazebo.xacro"
     controllers_file = gazebo_share / "config" / "ros2_controllers.yaml"
@@ -62,6 +93,7 @@ def generate_launch_description():
             use_lidar,
             " use_camera:=",
             use_camera,
+            *unitree_l2_xacro_mappings(unitree_l2),
         ]
     )
 
@@ -192,7 +224,7 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "use_lidar",
                 default_value=str(sim_defaults.get("use_lidar", True)).lower(),
-                description="Enable Unitree L2-style 3D lidar in URDF and bridge /lidar/points.",
+                description="Enable Unitree 4D-LiDAR L2 (datasheet) in URDF and bridge /lidar/points.",
             ),
             DeclareLaunchArgument(
                 "use_camera",

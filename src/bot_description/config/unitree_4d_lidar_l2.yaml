@@ -1,0 +1,45 @@
+# Unitree 4D-LiDAR L2 — values from manufacturer datasheet (Unitree / reichelt UT LIDAR L2).
+# Used by bot_v1.lidar.xacro (via sim launch xacro mappings) and documentation.
+
+unitree_4d_lidar_l2:
+  manufacturer: Unitree
+  model: "4D-LiDAR L2"
+  part_number: "4D LIDAR L2"
+
+  mechanical:
+    # 75 x 75 x 65 mm, 230 g
+    size_xyz_m: [0.075, 0.075, 0.065]
+    mass_kg: 0.230
+
+  optical:
+    range_min_m: 0.05          # near blind spot
+    range_max_m: 30.0          # @ 90% remission
+    range_resolution_m: 0.0045 # distance resolution 4.5 mm
+    accuracy_m: 0.02           # ±2 cm
+    horizontal_fov_deg: 360.0
+    vertical_fov_deg: 96.0
+
+  timing:
+    points_per_second: 128000  # Abtastfrequenz
+    scan_frequency_hz: 5.55      # rotating scan (adjustable on device)
+    vertical_scan_frequency_hz: 216.0
+
+  interface:
+    # Real hardware: ENET UDP / TTL UART (not modeled in Gazebo).
+    - ethernet_udp
+    - ttl_uart
+
+  # gpu_lidar ray grid derived from datasheet (points/s, scan Hz, vertical scan Hz).
+  gazebo:
+    topic: /lidar/points
+    frame_id: lidar_link
+    update_rate_hz: 5.55
+    # vertical lines per 360° sweep ≈ vertical_scan_hz / scan_frequency_hz
+    vertical_samples: 39
+    # horizontal rays per ring ≈ points_per_second / scan_frequency_hz / vertical_samples
+    horizontal_samples: 591
+    horizontal_min_angle_rad: -3.141592653589793
+    horizontal_max_angle_rad: 3.141592653589793
+    vertical_min_angle_rad: -0.8377580409573661   # -48° (half of 96° VFOV)
+    vertical_max_angle_rad: 0.8377580409573661    # +48°
+    noise_stddev_m: 0.02

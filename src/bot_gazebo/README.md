@@ -2,7 +2,7 @@
 
 Gazebo Sim, robot spawn, `ros2_control`, sensor bridges (3D lidar + camera), and swerve control.
 
-3D LiDAR simulates a **Unitree 4D-LiDAR L2** (360° × 96° FOV, 0.05–30 m) and publishes `sensor_msgs/PointCloud2` on `/lidar/points`.
+3D LiDAR: **Unitree 4D-LiDAR L2** parameters from `bot_description/config/unitree_4d_lidar_l2.yaml` (manufacturer datasheet). Publishes `sensor_msgs/PointCloud2` on `/lidar/points` at 5.55 Hz (~591×39 rays ≈ 128k pts/s).
 
 ## Launch
 

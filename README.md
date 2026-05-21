@@ -35,7 +35,7 @@ ros2 launch bot_gazebo sim_swerve.launch.py
 
 Optional: `use_lidar:=true`, `use_camera:=true` (defaults in `bot_gazebo/config/sim_swerve.yaml`).
 
-3D LiDAR (Unitree 4D-LiDAR L2 model in sim): topic `/lidar/points` (`sensor_msgs/PointCloud2`), frame `lidar_link`.
+3D LiDAR: **Unitree 4D-LiDAR L2** per datasheet in `bot_description/config/unitree_4d_lidar_l2.yaml` — topic `/lidar/points`, frame `lidar_link`, 360°×96° FOV, 0.05–30 m, 128k pts/s @ 5.55 Hz.
 
 Visualize the model without Gazebo:
 

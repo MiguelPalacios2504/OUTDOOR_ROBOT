@@ -5,6 +5,18 @@
   <xacro:arg name="imu_update_rate" default="100.0" />
   <xacro:arg name="use_lidar" default="false" />
   <xacro:arg name="use_camera" default="false" />
+  <!-- Unitree 4D-LiDAR L2 (see config/unitree_4d_lidar_l2.yaml) -->
+  <xacro:arg name="lidar_topic" default="/lidar/points" />
+  <xacro:arg name="lidar_frame_id" default="lidar_link" />
+  <xacro:arg name="lidar_update_rate" default="5.55" />
+  <xacro:arg name="lidar_horizontal_samples" default="591" />
+  <xacro:arg name="lidar_vertical_samples" default="39" />
+  <xacro:arg name="lidar_min_range" default="0.05" />
+  <xacro:arg name="lidar_max_range" default="30.0" />
+  <xacro:arg name="lidar_range_resolution" default="0.0045" />
+  <xacro:arg name="lidar_noise_stddev" default="0.02" />
+  <xacro:arg name="lidar_size_xyz" default="0.075 0.075 0.065" />
+  <xacro:arg name="lidar_mass" default="0.23" />
 
   <xacro:include filename="bot_v1.core.xacro" />
   <xacro:include filename="bot_v1.lidar.xacro" />
@@ -29,7 +41,19 @@
   <xacro:bot_robot mesh_dir="$(arg mesh_dir)" />
 
   <xacro:if value="$(arg use_lidar)">
-    <xacro:bot_lidar add_gazebo="true" />
+    <xacro:bot_lidar
+      add_gazebo="true"
+      topic="$(arg lidar_topic)"
+      frame_id="$(arg lidar_frame_id)"
+      update_rate="$(arg lidar_update_rate)"
+      horizontal_samples="$(arg lidar_horizontal_samples)"
+      vertical_samples="$(arg lidar_vertical_samples)"
+      min_range="$(arg lidar_min_range)"
+      max_range="$(arg lidar_max_range)"
+      range_resolution="$(arg lidar_range_resolution)"
+      noise_stddev="$(arg lidar_noise_stddev)"
+      size_xyz="$(arg lidar_size_xyz)"
+      mass="$(arg lidar_mass)" />
   </xacro:if>
 
   <xacro:if value="$(arg use_camera)">
