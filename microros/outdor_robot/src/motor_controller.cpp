@@ -55,12 +55,12 @@ void MotorController::begin() {
 
   for (uint8_t i = 0; i < NUM_DRIVE_MOTORS; ++i) {
     pinMode(channels_[i].dir_pin, OUTPUT);
-    ledcSetup(channels_[i].ledc_channel, PWM_FREQUENCY_HZ, PWM_RESOLUTION_BITS);
-    ledcAttachPin(channels_[i].pwm_pin, channels_[i].ledc_channel);
+    ledcSetup(i, PWM_FREQUENCY_HZ, PWM_RESOLUTION_BITS);
+    ledcAttachPin(channels_[i].pwm_pin, i);
 
     states_[i] = MotorState{};
     states_[i].last_update_ms = millis();
-    writeMotor(channels_[i], 0.0f);
+    writeMotor(i, 0.0f);
   }
 
   if (MOTOR_USE_ENCODERS) {
@@ -149,7 +149,7 @@ void MotorController::update(uint32_t now_ms) {
     }
 
     st.output = command;
-    writeMotor(channels_[i], command);
+    writeMotor(i, command);
   }
 }
 
@@ -188,7 +188,7 @@ void MotorController::stopAll() {
     states_[i].output = 0.0f;
     states_[i].integral = 0.0f;
     states_[i].last_error = 0.0f;
-    writeMotor(channels_[i], 0.0f);
+    writeMotor(i, 0.0f);
   }
 }
 
@@ -204,7 +204,13 @@ float MotorController::getOutput(uint8_t motor_index) const {
   return (motor_index < NUM_DRIVE_MOTORS) ? states_[motor_index].output : 0.0f;
 }
 
-void MotorController::writeMotor(const MotorChannel &ch, float velocity) {
+void MotorController::writeMotor(uint8_t motor_index, float velocity) {
+  if (motor_index >= NUM_DRIVE_MOTORS) {
+    return;
+  }
+
+  const MotorChannel &ch = channels_[motor_index];
+
   if (velocity > 1.0f) {
     velocity = 1.0f;
   } else if (velocity < -1.0f) {
@@ -215,5 +221,5 @@ void MotorController::writeMotor(const MotorChannel &ch, float velocity) {
   digitalWrite(ch.dir_pin, forward ? HIGH : LOW);
 
   const uint8_t duty = static_cast<uint8_t>(fabsf(velocity) * 255.0f);
-  ledcWrite(ch.ledc_channel, duty);
+  ledcWrite(motor_index, duty);
 }

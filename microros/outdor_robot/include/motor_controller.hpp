@@ -23,10 +23,11 @@ struct PidGains {
   float out_max;   // salida PID normalizada
 };
 
+// Solo pines físicos. El PWM usa el periférico LEDC del ESP32 por software
+// (canal interno = índice del motor 0..3), no consume GPIO extra.
 struct MotorChannel {
   uint8_t pwm_pin;
   uint8_t dir_pin;
-  uint8_t ledc_channel;
   uint8_t enc_pin_a;  // señal A (interrupción)
   uint8_t enc_pin_b;  // señal B (dirección)
 };
@@ -62,7 +63,7 @@ private:
 
   void attachEncoders();
   float computePid(uint8_t index, float error, float dt_sec);
-  void writeMotor(const MotorChannel &ch, float velocity);
+  void writeMotor(uint8_t motor_index, float velocity);
 
   static constexpr uint8_t PWM_RESOLUTION_BITS = 8;
   static constexpr uint32_t PWM_FREQUENCY_HZ = 20000;
@@ -78,10 +79,10 @@ private:
   };
 
   const MotorChannel channels_[NUM_DRIVE_MOTORS] = {
-      {19, 18, 0, 34, 35},  // FL — ajusta pines encoder
-      {14, 27, 1, 36, 39},  // FR
-      {25, 33, 2, 21, 22},  // RL
-      {32, 26, 3, 23, 17},  // RR
+      {19, 18, 34, 35},  // FL — pwm, dir, enc_a, enc_b
+      {14, 27, 36, 39},  // FR
+      {25, 33, 21, 22},  // RL
+      {32, 26, 23, 17},  // RR
   };
 
   PidGains gains_ = DEFAULT_GAINS;
