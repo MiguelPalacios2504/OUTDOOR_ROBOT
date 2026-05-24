@@ -14,7 +14,7 @@
   <xacro:arg name="gnss_mass" default="0.05" />
   <!-- Unitree 4D-LiDAR L2 (see config/unitree_4d_lidar_l2.yaml) -->
   <xacro:arg name="lidar_topic" default="/lidar" />
-  <xacro:arg name="lidar_xyz" default="0 0 0.20" />
+  <xacro:arg name="lidar_xyz" default="0 0 0.17" />
   <xacro:arg name="lidar_frame_id" default="lidar_link" />
   <xacro:arg name="lidar_update_rate" default="5.55" />
   <xacro:arg name="lidar_horizontal_samples" default="591" />
@@ -23,6 +23,8 @@
   <xacro:arg name="lidar_max_range" default="30.0" />
   <xacro:arg name="lidar_range_resolution" default="0.0045" />
   <xacro:arg name="lidar_noise_stddev" default="0.02" />
+  <xacro:arg name="lidar_vertical_min_angle" default="-0.13962634015954636" />
+  <xacro:arg name="lidar_vertical_max_angle" default="1.5707963267948966" />
   <xacro:arg name="lidar_size_xyz" default="0.075 0.075 0.065" />
   <xacro:arg name="lidar_mass" default="0.23" />
 
@@ -62,6 +64,8 @@
       max_range="$(arg lidar_max_range)"
       range_resolution="$(arg lidar_range_resolution)"
       noise_stddev="$(arg lidar_noise_stddev)"
+      vertical_min_angle="$(arg lidar_vertical_min_angle)"
+      vertical_max_angle="$(arg lidar_vertical_max_angle)"
       size_xyz="$(arg lidar_size_xyz)"
       mass="$(arg lidar_mass)" />
   </xacro:if>

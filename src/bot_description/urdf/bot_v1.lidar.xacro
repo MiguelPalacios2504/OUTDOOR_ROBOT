@@ -5,7 +5,7 @@
     name="bot_lidar"
     params="
       parent:=chassis_link
-      xyz:='0 0 0.20'
+      xyz:='0 0 0.17'
       rpy:='0 0 0'
       add_gazebo:=false
       topic:=/lidar
@@ -15,8 +15,8 @@
       vertical_samples:=39
       min_angle:=-3.141592653589793
       max_angle:=3.141592653589793
-      vertical_min_angle:=-0.8377580409573661
-      vertical_max_angle:=0.8377580409573661
+      vertical_min_angle:=-0.13962634015954636
+      vertical_max_angle:=1.5707963267948966
       min_range:=0.05
       max_range:=30.0
       range_resolution:=0.0045
@@ -56,14 +56,15 @@
     </joint>
 
     <xacro:if value="${add_gazebo}">
-      <!-- Attach on chassis_link: URDF->SDF lumping moves lidar_link sensors onto base_footprint. -->
-      <gazebo reference="${parent}">
+      <!-- SDFormat <sensor type="gpu_lidar">: scan/range/noise under <lidar> only.
+           Mount pose is the URDF joint; sensor pose is identity on ${frame_id}.
+           Harmonic (not in SDFormat spec): frame_id + gz_frame_id for ros_gz_bridge headers. -->
+      <gazebo reference="${frame_id}">
         <sensor name="unitree_4d_lidar_l2" type="gpu_lidar">
-          <always_on>1</always_on>
+          <always_on>true</always_on>
           <update_rate>${update_rate}</update_rate>
           <topic>${topic}</topic>
-          <pose>${xyz} 0 0 0</pose>
-          <!-- Harmonic: both tags required for gpu_lidar + ros_gz_bridge -->
+          <pose>0 0 0 0 0 0</pose>
           <frame_id>${frame_id}</frame_id>
           <gz_frame_id>${frame_id}</gz_frame_id>
           <lidar>
@@ -91,7 +92,6 @@
               <mean>0.0</mean>
               <stddev>${noise_stddev}</stddev>
             </noise>
-            <frame_id>${frame_id}</frame_id>
           </lidar>
           <visualize>false</visualize>
         </sensor>

@@ -17,7 +17,7 @@ unitree_4d_lidar_l2:
     range_resolution_m: 0.0045 # distance resolution 4.5 mm
     accuracy_m: 0.02           # ±2 cm
     horizontal_fov_deg: 360.0
-    vertical_fov_deg: 96.0
+    vertical_fov_deg: 98.0   # Sim: -8° .. 90° (datasheet NEGA: 96° symmetric)
 
   timing:
     points_per_second: 128000  # Abtastfrequenz
@@ -29,22 +29,19 @@ unitree_4d_lidar_l2:
     - ethernet_udp
     - ttl_uart
 
-  # gpu_lidar ray grid: datasheet-derived counts (591x39). Reduced in sim for GPU/bridge startup.
+  # Gazebo gpu_lidar (SDFormat <sensor type="gpu_lidar"> + child <lidar><scan>…).
   gazebo:
-    # Mount on chassis_link (+Z up). Raised 5 cm vs initial 0.15 m to reduce self-hits on the robot body.
-    xyz: [0.0, 0.0, 0.20]
+    # Mount on chassis_link (+Z up), 0.17 m (+2 cm vs 0.15 m).
+    xyz: [0.0, 0.0, 0.17]
     # Gazebo gpu_lidar appends "/points" (see gz-sensors GpuLidarSensor.cc). Base "/lidar" -> ROS/GZ cloud on /lidar/points.
     topic: /lidar
     frame_id: lidar_link
     update_rate_hz: 5.55
-    # Datasheet full grid: vertical 39, horizontal 591 (enable after bridge works on your GPU).
-    # vertical_samples: 39
-    # horizontal_samples: 591
-    # Sim default (lighter GPU lidar, same FOV/rates):
-    vertical_samples: 16
-    horizontal_samples: 180
+    # Datasheet full grid (~128k pts/s).
+    horizontal_samples: 591
+    vertical_samples: 39
     horizontal_min_angle_rad: -3.141592653589793
     horizontal_max_angle_rad: 3.141592653589793
-    vertical_min_angle_rad: -0.8377580409573661   # -48° (half of 96° VFOV)
-    vertical_max_angle_rad: 0.8377580409573661    # +48°
+    vertical_min_angle_rad: -0.13962634015954636   # -8°
+    vertical_max_angle_rad: 1.5707963267948966   # 90° (π/2)
     noise_stddev_m: 0.02

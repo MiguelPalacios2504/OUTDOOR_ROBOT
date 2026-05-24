@@ -81,6 +81,8 @@ def unitree_l2_xacro_mappings(l2: dict) -> list[str]:
         f" lidar_max_range:={l2['optical']['range_max_m']}",
         f" lidar_range_resolution:={l2['optical']['range_resolution_m']}",
         f" lidar_noise_stddev:={gazebo['noise_stddev_m']}",
+        f" lidar_vertical_min_angle:={gazebo['vertical_min_angle_rad']}",
+        f" lidar_vertical_max_angle:={gazebo['vertical_max_angle_rad']}",
         f' lidar_size_xyz:="{size_xyz}"',
         f" lidar_mass:={mechanical['mass_kg']}",
     ]
