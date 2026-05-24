@@ -5,10 +5,10 @@
     name="bot_lidar"
     params="
       parent:=chassis_link
-      xyz:='0 0 0.15'
+      xyz:='0 0 0.20'
       rpy:='0 0 0'
       add_gazebo:=false
-      topic:=/lidar/points
+      topic:=/lidar
       frame_id:=lidar_link
       update_rate:=5.55
       horizontal_samples:=591
@@ -56,11 +56,13 @@
     </joint>
 
     <xacro:if value="${add_gazebo}">
-      <gazebo reference="${frame_id}">
+      <!-- Attach on chassis_link: URDF->SDF lumping moves lidar_link sensors onto base_footprint. -->
+      <gazebo reference="${parent}">
         <sensor name="unitree_4d_lidar_l2" type="gpu_lidar">
           <always_on>1</always_on>
           <update_rate>${update_rate}</update_rate>
           <topic>${topic}</topic>
+          <pose>${xyz} 0 0 0</pose>
           <!-- Harmonic: both tags required for gpu_lidar + ros_gz_bridge -->
           <frame_id>${frame_id}</frame_id>
           <gz_frame_id>${frame_id}</gz_frame_id>
@@ -89,8 +91,9 @@
               <mean>0.0</mean>
               <stddev>${noise_stddev}</stddev>
             </noise>
+            <frame_id>${frame_id}</frame_id>
           </lidar>
-          <visualize>true</visualize>
+          <visualize>false</visualize>
         </sensor>
       </gazebo>
     </xacro:if>

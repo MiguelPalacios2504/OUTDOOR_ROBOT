@@ -1,0 +1,19 @@
+# Simulated GNSS (Gazebo navsat -> sensor_msgs/NavSatFix on /gnss/fix).
+# World origin must match spherical_coordinates in bot_gazebo/worlds/*.world.sdf.
+
+bot_gnss:
+  gazebo:
+    topic: /gnss/fix
+    frame_id: gnss_link
+    update_rate_hz: 10.0
+    # Antenna offset on chassis_link [m]
+    xyz: [0.0, 0.0, 0.18]
+    size_xyz_m: [0.04, 0.04, 0.02]
+    mass_kg: 0.05
+
+  # WGS84 origin of the Gazebo world frame (ENU). Robot spawn shifts lat/lon from here.
+  world_origin:
+    latitude_deg: 47.478950
+    longitude_deg: 19.057785
+    elevation_m: 0.0
+    heading_deg: 0.0

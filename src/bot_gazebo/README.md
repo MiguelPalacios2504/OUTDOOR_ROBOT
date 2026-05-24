@@ -11,6 +11,8 @@ source install/setup.bash
 ros2 launch bot_gazebo sim_swerve.launch.py
 ```
 
-Optional: `use_lidar:=false`, `use_camera:=false` for a lighter sim.
+Optional: `use_lidar:=false`, `use_camera:=false`, `use_gnss:=false` for a lighter sim.
+
+GNSS: simulated `navsat` sensor → `/gnss/fix` (`NavSatFix`). Config: `bot_description/config/bot_gnss.yaml`.
 
 Config defaults: `config/sim_swerve.yaml`.

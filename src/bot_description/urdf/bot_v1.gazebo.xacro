@@ -5,8 +5,16 @@
   <xacro:arg name="imu_update_rate" default="100.0" />
   <xacro:arg name="use_lidar" default="false" />
   <xacro:arg name="use_camera" default="false" />
+  <xacro:arg name="use_gnss" default="false" />
+  <xacro:arg name="gnss_topic" default="/gnss/fix" />
+  <xacro:arg name="gnss_frame_id" default="gnss_link" />
+  <xacro:arg name="gnss_update_rate" default="10.0" />
+  <xacro:arg name="gnss_xyz" default="0 0 0.18" />
+  <xacro:arg name="gnss_size_xyz" default="0.04 0.04 0.02" />
+  <xacro:arg name="gnss_mass" default="0.05" />
   <!-- Unitree 4D-LiDAR L2 (see config/unitree_4d_lidar_l2.yaml) -->
-  <xacro:arg name="lidar_topic" default="/lidar/points" />
+  <xacro:arg name="lidar_topic" default="/lidar" />
+  <xacro:arg name="lidar_xyz" default="0 0 0.20" />
   <xacro:arg name="lidar_frame_id" default="lidar_link" />
   <xacro:arg name="lidar_update_rate" default="5.55" />
   <xacro:arg name="lidar_horizontal_samples" default="591" />
@@ -21,6 +29,7 @@
   <xacro:include filename="bot_v1.core.xacro" />
   <xacro:include filename="bot_v1.lidar.xacro" />
   <xacro:include filename="bot_v1.camera.xacro" />
+  <xacro:include filename="bot_v1.gnss.xacro" />
 
   <xacro:macro name="ros2_control_position_joint" params="joint_name">
     <joint name="${joint_name}">
@@ -43,6 +52,7 @@
   <xacro:if value="$(arg use_lidar)">
     <xacro:bot_lidar
       add_gazebo="true"
+      xyz="$(arg lidar_xyz)"
       topic="$(arg lidar_topic)"
       frame_id="$(arg lidar_frame_id)"
       update_rate="$(arg lidar_update_rate)"
@@ -58,6 +68,17 @@
 
   <xacro:if value="$(arg use_camera)">
     <xacro:bot_camera add_gazebo="true" />
+  </xacro:if>
+
+  <xacro:if value="$(arg use_gnss)">
+    <xacro:bot_gnss
+      add_gazebo="true"
+      topic="$(arg gnss_topic)"
+      frame_id="$(arg gnss_frame_id)"
+      update_rate="$(arg gnss_update_rate)"
+      xyz="$(arg gnss_xyz)"
+      size_xyz="$(arg gnss_size_xyz)"
+      mass="$(arg gnss_mass)" />
   </xacro:if>
 
   <gazebo reference="imu_link">

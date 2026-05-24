@@ -31,15 +31,18 @@ unitree_4d_lidar_l2:
 
   # gpu_lidar ray grid: datasheet-derived counts (591x39). Reduced in sim for GPU/bridge startup.
   gazebo:
-    topic: /lidar/points
+    # Mount on chassis_link (+Z up). Raised 5 cm vs initial 0.15 m to reduce self-hits on the robot body.
+    xyz: [0.0, 0.0, 0.20]
+    # Gazebo gpu_lidar appends "/points" (see gz-sensors GpuLidarSensor.cc). Base "/lidar" -> ROS/GZ cloud on /lidar/points.
+    topic: /lidar
     frame_id: lidar_link
     update_rate_hz: 5.55
     # Datasheet full grid: vertical 39, horizontal 591 (enable after bridge works on your GPU).
     # vertical_samples: 39
     # horizontal_samples: 591
     # Sim default (lighter GPU lidar, same FOV/rates):
-    vertical_samples: 24
-    horizontal_samples: 360
+    vertical_samples: 16
+    horizontal_samples: 180
     horizontal_min_angle_rad: -3.141592653589793
     horizontal_max_angle_rad: 3.141592653589793
     vertical_min_angle_rad: -0.8377580409573661   # -48° (half of 96° VFOV)

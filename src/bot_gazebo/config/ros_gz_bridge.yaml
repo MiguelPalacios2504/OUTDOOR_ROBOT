@@ -1,5 +1,4 @@
-# ros_gz_bridge config (parameter_bridge -p config_file:=...)
-# https://github.com/gazebosim/ros_gz/tree/ros2/ros_gz_bridge
+# Base bridges (clock, imu, odom, lidar). Camera entries are harmless when use_camera:=false.
 
 - ros_topic_name: /clock
   gz_topic_name: /clock
@@ -23,6 +22,24 @@
   gz_type_name: gz.msgs.Odometry
   lazy: false
   direction: GZ_TO_ROS
+
+- ros_topic_name: /gnss/fix
+  gz_topic_name: /gnss/fix
+  ros_type_name: sensor_msgs/msg/NavSatFix
+  gz_type_name: gz.msgs.NavSat
+  lazy: false
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+# gpu_lidar: URDF <topic>/lidar</topic> -> GZ LaserScan on /lidar, PointCloudPacked on /lidar/points
+# (same pattern as MOGI-ROS Week-5-6: scan + scan/points)
+- ros_topic_name: /lidar
+  gz_topic_name: /lidar
+  ros_type_name: sensor_msgs/msg/LaserScan
+  gz_type_name: gz.msgs.LaserScan
+  lazy: false
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
 
 - ros_topic_name: /lidar/points
   gz_topic_name: /lidar/points

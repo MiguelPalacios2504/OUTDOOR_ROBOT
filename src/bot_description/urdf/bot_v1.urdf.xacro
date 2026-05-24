@@ -4,10 +4,12 @@
   <xacro:arg name="mesh_dir" default="package://bot_description/meshes" />
   <xacro:arg name="use_lidar" default="false" />
   <xacro:arg name="use_camera" default="false" />
+  <xacro:arg name="use_gnss" default="false" />
 
   <xacro:include filename="bot_v1.core.xacro" />
   <xacro:include filename="bot_v1.lidar.xacro" />
   <xacro:include filename="bot_v1.camera.xacro" />
+  <xacro:include filename="bot_v1.gnss.xacro" />
   <xacro:bot_robot mesh_dir="$(arg mesh_dir)" />
 
   <xacro:if value="$(arg use_lidar)">
@@ -16,5 +18,9 @@
 
   <xacro:if value="$(arg use_camera)">
     <xacro:bot_camera add_gazebo="false" />
+  </xacro:if>
+
+  <xacro:if value="$(arg use_gnss)">
+    <xacro:bot_gnss add_gazebo="false" />
   </xacro:if>
 </robot>

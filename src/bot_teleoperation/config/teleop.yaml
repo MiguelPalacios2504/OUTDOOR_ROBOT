@@ -1,0 +1,19 @@
+keyboard_teleop_node:
+  ros__parameters:
+    cmd_vel_topic: /cmd_vel
+    publish_rate_hz: 30.0
+    # Per-axis limits (incremental mode clamps to these).
+    max_linear_x: 0.5
+    max_linear_y: 0.5
+    max_angular_z: 1.0
+    holonomic_normalize: true
+    speed_step: 0.1
+    # incremental: each key adds/subtracts a velocity step (default).
+    # absolute: one key toggles full speed on that axis.
+    control_mode: incremental
+    linear_step: 0.05
+    angular_step: 0.1
+    require_deadman: false
+    # Only used when control_mode=absolute.
+    sticky_keys: true
+    key_timeout_s: 0.35

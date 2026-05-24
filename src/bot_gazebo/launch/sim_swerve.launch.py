@@ -40,11 +40,38 @@ def load_unitree_l2_config(description_share: Path) -> dict:
     return l2
 
 
+def load_gnss_config(description_share: Path) -> dict:
+    config_path = description_share / "config" / "bot_gnss.yaml"
+    with config_path.open("r", encoding="utf-8") as config_file:
+        data = yaml.safe_load(config_file) or {}
+
+    gnss = data.get("bot_gnss", {})
+    if not isinstance(gnss, dict):
+        raise ValueError(f"bot_gnss section in {config_path} must be a mapping")
+    return gnss
+
+
+def gnss_xacro_mappings(gnss: dict) -> list[str]:
+    gazebo = gnss["gazebo"]
+    xyz = " ".join(str(v) for v in gazebo["xyz"])
+    size_xyz = " ".join(str(v) for v in gazebo["size_xyz_m"])
+    return [
+        f" gnss_topic:={gazebo['topic']}",
+        f" gnss_frame_id:={gazebo['frame_id']}",
+        f" gnss_update_rate:={gazebo['update_rate_hz']}",
+        f' gnss_xyz:="{xyz}"',
+        f' gnss_size_xyz:="{size_xyz}"',
+        f" gnss_mass:={gazebo['mass_kg']}",
+    ]
+
+
 def unitree_l2_xacro_mappings(l2: dict) -> list[str]:
     gazebo = l2["gazebo"]
     mechanical = l2["mechanical"]
     size_xyz = " ".join(str(v) for v in mechanical["size_xyz_m"])
+    lidar_xyz = " ".join(str(v) for v in gazebo["xyz"])
     return [
+        f' lidar_xyz:="{lidar_xyz}"',
         f" lidar_topic:={gazebo['topic']}",
         f" lidar_frame_id:={gazebo['frame_id']}",
         f" lidar_update_rate:={gazebo['update_rate_hz']}",
@@ -66,6 +93,7 @@ def generate_launch_description():
     ros_gz_share = Path(get_package_share_directory("ros_gz_sim"))
     sim_defaults = load_sim_defaults(gazebo_share)
     unitree_l2 = load_unitree_l2_config(description_share)
+    gnss_config = load_gnss_config(description_share)
 
     xacro_path = description_share / "urdf" / "bot_v1.gazebo.xacro"
     controllers_file = gazebo_share / "config" / "ros2_controllers.yaml"
@@ -75,6 +103,7 @@ def generate_launch_description():
     world_file = LaunchConfiguration("world_file")
     use_lidar = LaunchConfiguration("use_lidar")
     use_camera = LaunchConfiguration("use_camera")
+    use_gnss = LaunchConfiguration("use_gnss")
     spawn_x = LaunchConfiguration("spawn_x")
     spawn_y = LaunchConfiguration("spawn_y")
     spawn_z = LaunchConfiguration("spawn_z")
@@ -94,7 +123,10 @@ def generate_launch_description():
             use_lidar,
             " use_camera:=",
             use_camera,
+            " use_gnss:=",
+            use_gnss,
             *unitree_l2_xacro_mappings(unitree_l2),
+            *gnss_xacro_mappings(gnss_config),
         ]
     )
 
@@ -129,6 +161,16 @@ def generate_launch_description():
         parameters=[
             {"use_sim_time": True, "config_file": str(bridge_config)},
         ],
+    )
+
+    lidar_topic = unitree_l2["gazebo"]["topic"]
+    gnss_topic = gnss_config["gazebo"]["topic"]
+    lidar_ready_msg = (
+        f"LiDAR: Gazebo {lidar_topic} bridged by sim_bridge (ros_gz_bridge.yaml). Press Play, wait ~40s. "
+        "Check: gz topic -f -t /lidar/points ; ros2 topic hz /lidar/points -s"
+    )
+    gnss_ready_msg = (
+        f"GNSS: {gnss_topic} (NavSatFix). Check: ros2 topic echo {gnss_topic} --once -s"
     )
 
     spawn_robot = Node(
@@ -215,16 +257,11 @@ def generate_launch_description():
         OnProcessExit(target_action=joint_state_broadcaster, on_exit=[wheel_velocity_controller])
     )
 
-    lidar_topic = unitree_l2["gazebo"]["topic"]
-    lidar_ready_msg = (
-        f"Unitree L2 gpu_lidar on {lidar_topic}: wait until Gazebo is playing (not paused), "
-        "then 20-40 s for the first PointCloud2. Check: ros2 topic hz {lidar_topic}"
-    )
-
     return LaunchDescription(
         [
             set_gz_resource_path,
             LogInfo(msg=lidar_ready_msg),
+            LogInfo(msg=gnss_ready_msg),
             DeclareLaunchArgument(
                 "use_lidar",
                 default_value=str(sim_defaults.get("use_lidar", True)).lower(),
@@ -234,6 +271,11 @@ def generate_launch_description():
                 "use_camera",
                 default_value=str(sim_defaults.get("use_camera", True)).lower(),
                 description="Enable RGB-D camera in URDF and bridge /camera/* topics.",
+            ),
+            DeclareLaunchArgument(
+                "use_gnss",
+                default_value=str(sim_defaults.get("use_gnss", True)).lower(),
+                description="Enable simulated GNSS (navsat) on /gnss/fix.",
             ),
             DeclareLaunchArgument(
                 "world_file",

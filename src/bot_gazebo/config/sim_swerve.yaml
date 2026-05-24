@@ -9,7 +9,11 @@ sim_swerve:
   use_lidar: true
 
   # RGB-D camera: URDF overlay + /camera/* bridge (~7 GB RAM/GPU if enabled).
-  use_camera: true
+  # Keep false when debugging gpu_lidar (camera + lidar compete for GPU).
+  use_camera: false
+
+  # GNSS antenna (navsat) -> /gnss/fix (requires NavSat world plugin + spherical_coordinates).
+  use_gnss: true
 
   # Gazebo world file to load, relative to bot_gazebo/worlds/.
   world_file: mapping_arena.world.sdf
