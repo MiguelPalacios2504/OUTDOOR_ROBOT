@@ -3,21 +3,20 @@
 <package format="3">
   <name>bot_mapping</name>
   <version>0.0.0</version>
-  <description>LIO-SAM mapping bringup for the outdoor bot (3D lidar + IMU).</description>
+  <description>FAST-LIO2 mapping bringup for the outdoor bot (3D lidar + IMU).</description>
   <maintainer email="kotteaditya919@gmail.com">aditya</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
 
   <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>fast_lio</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
-  <exec_depend>lio_sam</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>sensor_msgs_py</exec_depend>
   <exec_depend>std_msgs</exec_depend>
-  <exec_depend>tf2_ros</exec_depend>
   <exec_depend>rviz2</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>

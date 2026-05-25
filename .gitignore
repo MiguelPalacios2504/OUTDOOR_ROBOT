@@ -38,3 +38,10 @@ Thumbs.db
 # *.mcap
 
 debug_logs/
+
+# FAST-LIO / livox: clone via vcs (see bot_mapping/repos/fast_lio.repos)
+src/FAST_LIO/
+
+# Saved 3D maps (local; copy from /tmp after map_save)
+maps/*.pcd
+maps/*.ply

@@ -1,0 +1,37 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Time
+    Name: Time
+Visualization Manager:
+  Displays:
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Name: TF
+    - Class: rviz_default_plugins/Odometry
+      Enabled: true
+      Name: FAST-LIO Odometry
+      Topic:
+        Value: /Odometry
+    - Class: rviz_default_plugins/Path
+      Enabled: true
+      Name: FAST-LIO Path
+      Topic:
+        Value: /path
+    - Class: rviz_default_plugins/PointCloud2
+      Enabled: true
+      Name: Registered Cloud
+      Topic:
+        Value: /cloud_registered
+    - Class: rviz_default_plugins/PointCloud2
+      Enabled: true
+      Name: Global Map
+      Topic:
+        Value: /Laser_map
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: camera_init
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+  Value: true

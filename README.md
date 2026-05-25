@@ -12,7 +12,7 @@ src/
 ├── bot_control/         # Swerve kinematics, cmd + joint bridge
 ├── bot_gazebo/          # Gazebo Sim, ros2_control, simulation launch
 ├── bot_teleoperation/   # Keyboard teleop (/cmd_vel)
-├── bot_mapping/         # LIO-SAM 3D mapping (lidar + IMU)
+├── bot_mapping/         # FAST-LIO2 3D mapping (lidar + IMU)
 └── bot_debug/           # CSV logging and plotting tools
 ```
 

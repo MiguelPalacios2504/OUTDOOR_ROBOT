@@ -10,23 +10,31 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", [f"resource/{package_name}"]),
         (f"share/{package_name}", ["package.xml"]),
-        (f"share/{package_name}/config", ["config/lio_sam_params.yaml"]),
-        (f"share/{package_name}/launch", [
-            "launch/lio_sam.launch.py",
-            "launch/mapping_sim.launch.py",
-        ]),
-        (f"share/{package_name}/rviz", ["rviz/mapping_lio_sam.rviz"]),
-        (f"share/{package_name}/repos", ["repos/lio_sam.repos"]),
+        (
+            f"share/{package_name}/config",
+            [
+                "config/fast_lio_unitree_l2.yaml",
+                "config/fast_lio_unitree_l2_direct.yaml",
+                "config/fast_lio_unitree_l2_sim.yaml",
+            ],
+        ),
+        (
+            f"share/{package_name}/launch",
+            ["launch/fast_lio.launch.py"],
+        ),
+        (f"share/{package_name}/rviz", ["rviz/mapping_fast_lio.rviz"]),
+        (f"share/{package_name}/repos", ["repos/fast_lio.repos"]),
+        (f"share/{package_name}/patches", ["patches/fast_lio_jazzy.patch"]),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
     maintainer="aditya",
     maintainer_email="kotteaditya919@gmail.com",
-    description="LIO-SAM mapping bringup for the outdoor bot (3D lidar + IMU).",
+    description="FAST-LIO2 mapping bringup for the outdoor bot (3D lidar + IMU).",
     license="TODO: License declaration",
     entry_points={
         "console_scripts": [
-            "velodyne_cloud_adapter = bot_mapping.velodyne_cloud_adapter:main",
+            "unitree_lidar_adapter = bot_mapping.unitree_lidar_adapter:main",
         ],
     },
 )
