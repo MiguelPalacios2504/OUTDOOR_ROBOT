@@ -39,9 +39,6 @@ Thumbs.db
 
 debug_logs/
 
-# FAST-LIO / livox: clone via vcs (see bot_mapping/repos/fast_lio.repos)
-src/FAST_LIO/
-
-# Saved 3D maps (local; copy from /tmp after map_save)
-maps/*.pcd
-maps/*.ply
+# Nested clones (vendored FAST-LIO is committed without .git/)
+src/FAST_LIO/.git/
+src/FAST_LIO/include/ikd-Tree/.git/

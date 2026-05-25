@@ -32,9 +32,12 @@ sudo apt install -y \
 # Not in Jazzy apt: ros-jazzy-pcl-ros, ros-jazzy-perception-pcl (removed from FAST_LIO patch)
 
 cd ~/Documents/GITHUB/OUTDOOR_ROBOT
-vcs import src < src/bot_mapping/repos/fast_lio.repos
-cd src/FAST_LIO && git submodule update --init --recursive && cd ../..
-patch -p1 -d src/FAST_LIO < src/bot_mapping/patches/fast_lio_jazzy.patch
+
+# FAST_LIO is vendored under src/FAST_LIO/ (Jazzy patch already applied).
+# Fresh clone without vendored tree:
+#   vcs import src < src/bot_mapping/repos/fast_lio.repos
+#   cd src/FAST_LIO && git submodule update --init --recursive && cd ../..
+#   patch -p1 -d src/FAST_LIO < src/bot_mapping/patches/fast_lio_jazzy.patch
 
 # Patch: C++17, drop pcl_ros, IMU SensorDataQoS (Jazzy)
 colcon build --packages-select livox_ros_driver2 fast_lio bot_mapping --symlink-install

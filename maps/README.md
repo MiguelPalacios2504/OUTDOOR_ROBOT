@@ -9,4 +9,4 @@ mkdir -p maps
 cp /tmp/fast_lio_map.pcd maps/my_map.pcd
 ```
 
-`*.pcd` files are gitignored (too large for the repo). Keep copies here on your machine.
+Example map: `mi_mapa_sim.pcd` (FAST-LIO sim run). Add more `*.pcd` here as needed.
