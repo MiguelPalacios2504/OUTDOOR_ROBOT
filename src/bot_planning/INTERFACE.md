@@ -9,7 +9,7 @@ Packages are split for parallel development. **`bot_gazebo` only runs the simula
 | Gazebo world + robot spawn | `/joint_states`, `/imu/data`, `/scan`, `/camera/*` |
 | Swerve command path | `/cmd_vel` → joint commands |
 
-**Launch:** `ros2 launch bot_gazebo sim_swerve.launch.py`
+**Launch:** `ros2 launch bot_gazebo simulation.launch.py`
 
 ## `bot_localization` owns
 
@@ -39,7 +39,7 @@ Packages are split for parallel development. **`bot_gazebo` only runs the simula
 
 ```bash
 # 1 — sim
-ros2 launch bot_gazebo sim_swerve.launch.py
+ros2 launch bot_gazebo simulation.launch.py
 
 # 2 — localization (navigate in saved map)
 ros2 launch bot_localization localization.launch.py \
@@ -50,5 +50,5 @@ ros2 launch bot_localization localization.launch.py \
 ros2 launch bot_planning navigation.launch.py use_sim_time:=true
 
 # 4 — RViz (optional)
-ros2 launch bot_localization localization_rviz.launch.py
+ros2 launch bot_localization localization.launch.py  # RViz included by default
 ```

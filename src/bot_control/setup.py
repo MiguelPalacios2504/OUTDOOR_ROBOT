@@ -12,15 +12,21 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", [f"resource/{package_name}"]),
         (f"share/{package_name}", ["package.xml"]),
-        (f"share/{package_name}/config", ["config/joint_command_bridge.yaml"]),
-        (f"share/{package_name}/config", ["config/swerve_cmd.yaml"]),
-        (f"share/{package_name}/launch", ["launch/swerve.launch.py"]),
+        (
+            f"share/{package_name}/config",
+            [
+                "config/joint_command_bridge.yaml",
+                "config/swerve_cmd.yaml",
+                "config/ros2_controllers.yaml",
+            ],
+        ),
+        (f"share/{package_name}/launch", ["launch/control.launch.py"]),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
-    maintainer="aditya",
-    maintainer_email="kotteaditya919@gmail.com",
-    description="Control and odometry nodes for the ITQ robot platform.",
+    maintainer="celeste",
+    maintainer_email="mariaceleste.fernandez@robotum.info",
+    description="Swerve control and ros2_control for the ITQ bot platform.",
     license="TODO: License declaration",
     entry_points={
         "console_scripts": [

@@ -1,24 +1,32 @@
 # bot_localization
 
-EKF fusion, wheel odometry, **laser odometry** (`ros2_laser_scan_matcher` → `/laser/odom`), SLAM mapping, and AMCL on saved maps.
+EKF, odometría de ruedas, laser odom, SLAM, AMCL y **RViz** (un solo launch).
 
-Laser odometry belongs here, not in `bot_planning`. The EKF merges `/wheel/odom`, optional `/laser/odom`, and IMU into `/odometry/filtered` for Nav2.
+Nav2 → **`bot_planning`**.
 
-Planning lives in **`bot_planning`** — see `../bot_planning/INTERFACE.md`.
+## Simulación (terminal 2)
 
-## Launch
+Con Gazebo ya en marcha:
 
 ```bash
-# EKF + wheel odom only
-ros2 launch bot_localization localization.launch.py \
-  enable_slam:=false enable_saved_map_localization:=false
-
-# Mapping with slam_toolbox
-ros2 launch bot_localization localization.launch.py \
-  enable_slam:=true enable_saved_map_localization:=false
-
-# Localize in a saved map (for Nav2 / bot_planning)
-ros2 launch bot_localization localization.launch.py \
-  enable_slam:=false enable_saved_map_localization:=true \
-  map_yaml_file:=/path/to/maps/arena_map.yaml
+source install/setup.bash
+ros2 launch bot_localization localization.launch.py
 ```
+
+Por defecto: mapa (`arena_map.yaml`), AMCL, laser odom, EKF y RViz con `/map`.
+
+La pose inicial AMCL (`x=2`, `y=0`) debe coincidir con el spawn de sim (`simulation.launch.py`). Si el robot se ve **fuera del mapa**, alinea ambos o usa en RViz **2D Pose Estimate**.
+
+RViz va en el mismo launch para ver mapa, láser, pose y mandar **2D Goal** a Nav2 (T3). Sin ventana: `use_rviz:=false`.
+
+## Robot real
+
+Igual con `use_sim_time:=false`.
+
+## Modos
+
+| Modo | Flags |
+|------|--------|
+| Mapa + AMCL | `enable_saved_map_localization:=true` |
+| SLAM | `enable_slam:=true`, `enable_saved_map_localization:=false` |
+| Solo EKF | ambos `false` |

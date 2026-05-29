@@ -1,20 +1,28 @@
 # bot_planning
 
-Nav2 motion planning and control (planner, controller, behaviors, BT navigator).
+Nav2: planner, controller holonómico (DWB), behaviors, BT navigator.
 
-**Does not** run laser odometry, SLAM, AMCL, or EKF — those live in `bot_localization`.
+**No** incluye EKF, SLAM ni AMCL — lanza **`bot_localization`** antes.
 
-This stack only consumes:
-- `/odometry/filtered` (EKF output, may already include fused wheel + laser + IMU)
-- `/map` and TF `map` → `odom` (from localization)
-- `/scan` in costmaps (raw laser for obstacles — **not** the same as `/laser/odom`)
-
-See [INTERFACE.md](INTERFACE.md) for the contract with `bot_localization`.
-
-## Launch
+## Simulación (terminal 3, tras Gazebo + localización)
 
 ```bash
+source install/setup.bash
 ros2 launch bot_planning navigation.launch.py use_sim_time:=true
 ```
 
-Configuration: `config/nav2.yaml`.
+Nav2 publica `/cmd_vel` → `swerve_cmd_node` (arrancado en `bot_gazebo`).
+
+## Objetivo en RViz
+
+**2D Goal Pose** (RViz ya abierto desde `bot_localization/localization.launch.py`).
+
+## Robot real
+
+```bash
+ros2 launch bot_planning navigation.launch.py use_sim_time:=false
+```
+
+(con localización y sensores en marcha).
+
+Config: `config/nav2.yaml`. Behavior tree (replan + recovery, [Nav2 walkthrough](https://docs.nav2.org/behavior_trees/overview/detailed_behavior_tree_walkthrough.html#navigate-to-pose-with-replanning-and-recovery)): `config/navigate_to_pose_w_replanning_and_recovery.xml` — usado por defecto en `navigation.launch.py`. Contrato: `INTERFACE.md`.

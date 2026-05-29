@@ -33,7 +33,7 @@
   </xacro:if>
 
   <xacro:if value="$(arg use_camera)">
-    <xacro:bot_camera add_gazebo="true" />
+    <xacro:bot_camera mesh_dir="$(arg mesh_dir)" add_gazebo="true" />
   </xacro:if>
 
   <gazebo reference="imu_link">

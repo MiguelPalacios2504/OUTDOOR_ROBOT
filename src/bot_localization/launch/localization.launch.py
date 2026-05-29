@@ -34,8 +34,12 @@ def generate_launch_description():
     enable_slam = LaunchConfiguration("enable_slam")
     enable_saved_map_localization = LaunchConfiguration("enable_saved_map_localization")
     map_yaml_file = LaunchConfiguration("map_yaml_file")
+    use_sim_time = LaunchConfiguration("use_sim_time")
+    use_rviz = LaunchConfiguration("use_rviz")
+    rviz_config = LaunchConfiguration("rviz_config")
     localization_params = str(localization_share / "config" / "localization.yaml")
     default_map_yaml = str(localization_share / "maps" / "arena_map.yaml")
+    default_rviz_config = str(localization_share / "rviz" / "localization.rviz")
     slam_condition = IfCondition(
         all_configs(
             config_is_true(enable_slam),
@@ -164,12 +168,22 @@ def generate_launch_description():
         condition=saved_map_localization_condition,
         parameters=[
             {
-                "use_sim_time": True,
+                "use_sim_time": use_sim_time,
                 "autostart": True,
                 "bond_timeout": 0.0,
                 "node_names": ["map_server", "amcl"],
             }
         ],
+    )
+
+    rviz = Node(
+        package="rviz2",
+        executable="rviz2",
+        name="rviz2_localization",
+        output="screen",
+        condition=IfCondition(use_rviz),
+        arguments=["-d", rviz_config],
+        parameters=[{"use_sim_time": use_sim_time}],
     )
 
     return LaunchDescription(
@@ -186,16 +200,31 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "enable_saved_map_localization",
-                default_value="false",
+                default_value="true",
                 description=(
-                    "Start nav2_map_server + AMCL for saved-map localization. "
-                    "When true, this takes over the map -> odom transform instead of slam_toolbox."
+                    "Start nav2_map_server + AMCL (publishes /map for RViz and Nav2). "
+                    "Set false for SLAM-only or EKF-only."
                 ),
             ),
             DeclareLaunchArgument(
                 "map_yaml_file",
                 default_value=default_map_yaml,
                 description="Absolute path to the occupancy-grid YAML used by nav2_map_server.",
+            ),
+            DeclareLaunchArgument(
+                "use_sim_time",
+                default_value="true",
+                description="Use simulation clock (false on real hardware).",
+            ),
+            DeclareLaunchArgument(
+                "use_rviz",
+                default_value="true",
+                description="Start RViz with localization.rviz (map, scan, Nav2 goal).",
+            ),
+            DeclareLaunchArgument(
+                "rviz_config",
+                default_value=default_rviz_config,
+                description="Absolute path to the RViz config file.",
             ),
             localization_input,
             laser_odometry,
@@ -207,5 +236,6 @@ def generate_launch_description():
             map_server,
             amcl,
             lifecycle_manager_localization,
+            rviz,
         ]
     )

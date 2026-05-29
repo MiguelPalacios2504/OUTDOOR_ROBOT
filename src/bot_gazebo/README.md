@@ -1,40 +1,30 @@
 # bot_gazebo
 
-Gazebo Sim, robot spawn, `ros2_control`, sensor bridges (lidar + camera), and swerve command stack.
+Gazebo Sim: mundo, spawn, `ros2_control`, bridge de sensores, `bot_control`.
 
-**Does not** start localization, SLAM, AMCL, or Nav2 — use `bot_localization` and `bot_planning` in separate terminals.
+**No** lanza localización, AMCL, EKF ni Nav2 — eso va en `bot_localization` y `bot_planning`.
 
-## Terminal 1 — simulation
+## Prerequisites (Jazzy)
+
+```bash
+source /opt/ros/jazzy/setup.bash
+bash scripts/install_jazzy_sim_deps.sh
+```
+
+## Terminal 1 — solo simulación
 
 ```bash
 source install/setup.bash
-ros2 launch bot_gazebo sim_swerve.launch.py
+ros2 launch bot_gazebo simulation.launch.py
 ```
 
-Optional: `use_lidar:=false`, `use_camera:=false` if you need a lighter sim.
+Opcional: `use_lidar:=false`, `use_camera:=false`, `use_rviz:=true`.
 
-## Terminal 2 — localization
+## Siguiente (otras terminales)
 
-```bash
-source install/setup.bash
-ros2 launch bot_localization localization.launch.py \
-  enable_slam:=false \
-  enable_saved_map_localization:=true \
-  enable_laser_odometry:=true \
-  map_yaml_file:=$(pwd)/maps/arena_map.yaml
-```
+| Terminal | Paquete | Launch |
+|----------|---------|--------|
+| 2 | `bot_localization` | `localization.launch.py` (+ RViz por defecto) |
+| 3 | `bot_planning` | `navigation.launch.py` |
 
-For mapping: `enable_slam:=true enable_saved_map_localization:=false`
-
-## Terminal 3 — planning (after AMCL + map are running)
-
-```bash
-source install/setup.bash
-ros2 launch bot_planning navigation.launch.py use_sim_time:=true
-```
-
-## Terminal 4 — RViz (optional)
-
-```bash
-ros2 launch bot_localization localization_rviz.launch.py
-```
+Ver README del repo y `bot_localization/README.md`.

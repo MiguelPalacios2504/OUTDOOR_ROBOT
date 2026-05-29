@@ -8,9 +8,10 @@ This repository is a [ROS 2](https://docs.ros.org/) workspace for the outdoor mo
 
 ```text
 src/
-├── bot_description/   # URDF/Xacro, meshes, RViz
-├── bot_control/       # Swerve kinematics, cmd + joint bridge
-├── bot_gazebo/        # Gazebo Sim, ros2_control, simulation launch
+├── bot_description/   # URDF/Xacro, meshes, RViz, load_urdf.launch.py
+├── bot_control/       # Swerve kinematics, ros2_control config, spawners
+├── bot_gazebo/        # Gazebo Sim, gz_bridge, simulation launch stack
+├── bot_bringup/       # Real robot only — bringup.launch.py
 ├── bot_localization/  # EKF, laser odom, SLAM, AMCL
 ├── bot_planning/      # Nav2 planner, controller, behaviors
 └── bot_debug/         # CSV logging and plotting tools
@@ -28,7 +29,7 @@ External dependencies (vendored or via `bot_sources.repos`):
 
 **Role:** Canonical physical model of the bot.
 
-**Contents:** `urdf/bot_v1.*.xacro`, `meshes/`, `launch/display.launch.py`, `rviz/display.rviz`.
+**Contents:** `urdf/bot_v1.*.xacro`, `meshes/`, `launch/load_urdf.launch.py`, `launch/rviz.launch.py`, `rviz/display.rviz`.
 
 The clean model is `bot_v1.urdf.xacro`; Gazebo and `ros2_control` are in `bot_v1.gazebo.xacro`.
 
@@ -36,9 +37,9 @@ The clean model is `bot_v1.urdf.xacro`; Gazebo and `ros2_control` are in `bot_v1
 
 ## `bot_control`
 
-**Role:** Swerve drive command generation and joint-level bridging to `ros2_control`.
+**Role:** Swerve (`swerve_cmd_node`, `joint_command_bridge`) + `ros2_controllers.yaml`.
 
-**Nodes:** `swerve_cmd_node`, `joint_command_bridge`.
+**Launch:** `control.launch.py` (un solo launch en este paquete).
 
 ---
 
@@ -46,9 +47,17 @@ The clean model is `bot_v1.urdf.xacro`; Gazebo and `ros2_control` are in `bot_v1
 
 **Role:** Gazebo Sim only — robot, lidar, camera, `ros2_control`, swerve control. **No** SLAM, AMCL, or Nav2.
 
-**Main launch:** `ros2 launch bot_gazebo sim_swerve.launch.py`
+**Main launch:** `ros2 launch bot_gazebo simulation.launch.py`
 
-See `src/bot_gazebo/README.md` for the multi-terminal workflow.
+**Launch stack:** `simulation.launch.py` → `simulate_robot.launch.py` → `spawn_robot.launch.py` + `bot_control`.
+
+---
+
+## `bot_bringup`
+
+**Role:** **Solo robot real** — `bringup.launch.py` (URDF + `control.launch.py`, `use_sim_time:=false`).
+
+Simulación: `bot_gazebo`. Localización: `bot_localization`. Navegación: `bot_planning`.
 
 ---
 
@@ -80,7 +89,8 @@ Contract: `src/bot_planning/INTERFACE.md`
 
 ```bash
 cd /path/to/OUTDOOR_ROBOT
-source /opt/ros/<DISTRO>/setup.bash   # e.g. jazzy or humble
+source /opt/ros/jazzy/setup.bash
+bash scripts/install_jazzy_sim_deps.sh   # once: ros2_control + gz_ros2_control
 colcon build --symlink-install
 source install/setup.bash
 ```
@@ -93,26 +103,17 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-### Operación en 4 terminales (reemplaza el launch único antiguo)
+### Simulación + localización + navegación
 
-**Antes (todo en uno):**
+Un paquete por terminal (`cd OUTDOOR_ROBOT && source install/setup.bash`):
 
-```bash
-ros2 launch bot_gazebo sim_swerve.launch.py \
-  enable_slam:=false enable_saved_map_localization:=true enable_nav2:=true \
-  enable_laser_odometry:=true use_camera:=true
-```
+| # | Paquete | Comando |
+|---|---------|---------|
+| 1 | `bot_gazebo` | `ros2 launch bot_gazebo simulation.launch.py` |
+| 2 | `bot_localization` | `ros2 launch bot_localization localization.launch.py` (mapa + AMCL + RViz) |
+| 3 | `bot_planning` | `ros2 launch bot_planning navigation.launch.py use_sim_time:=true` |
 
-**Ahora** — mismo comportamiento, en este orden (cada terminal: `cd OUTDOOR_ROBOT && source install/setup.bash`):
-
-| # | Qué | Comando |
-|---|-----|---------|
-| 1 | Robot, Gazebo, controladores, lidar, cámara | `ros2 launch bot_gazebo sim_swerve.launch.py use_camera:=true` |
-| 2 | Localización (EKF, laser odom, AMCL en mapa) | `ros2 launch bot_localization localization.launch.py enable_slam:=false enable_saved_map_localization:=true enable_laser_odometry:=true map_yaml_file:=$(pwd)/maps/arena_map.yaml` |
-| 3 | Navegación (Nav2) | `ros2 launch bot_planning navigation.launch.py use_sim_time:=true` |
-| 4 | RViz | `ros2 launch bot_localization localization_rviz.launch.py` |
-
-Espera a que el terminal 1 muestre Gazebo y controladores activos antes de lanzar el 2; espera mapa + AMCL antes del 3.
+Espera T1 antes de T2; T2 (`/map`, AMCL) antes de T3. En RViz (T2): **2D Goal Pose**.
 
 ---
 

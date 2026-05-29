@@ -11,7 +11,13 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", [f"resource/{package_name}"]),
         (f"share/{package_name}", ["package.xml"]),
-        (f"share/{package_name}/config", ["config/nav2.yaml"]),
+        (
+            f"share/{package_name}/config",
+            [
+                "config/nav2.yaml",
+                "config/navigate_to_pose_w_replanning_and_recovery.xml",
+            ],
+        ),
         (f"share/{package_name}/launch", ["launch/navigation.launch.py"]),
         (
             f"share/{package_name}/maps",

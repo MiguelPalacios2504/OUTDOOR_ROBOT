@@ -21,8 +21,9 @@ def generate_launch_description():
 
     nav2_params = str(planning_share / "config" / "nav2.yaml")
     default_terrain_yaml = str(planning_share / "maps" / "terrain_cost.yaml")
+    # Local copy from Nav2 docs (see config/navigate_to_pose_w_replanning_and_recovery.xml).
     nav_to_pose_bt_xml = str(
-        bt_navigator_share / "behavior_trees" / "navigate_to_pose_w_replanning_and_recovery.xml"
+        planning_share / "config" / "navigate_to_pose_w_replanning_and_recovery.xml"
     )
     nav_through_poses_bt_xml = str(
         bt_navigator_share
@@ -117,8 +118,8 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "enable_terrain_cost",
-                default_value="true",
-                description="Load terrain_cost map (random grass circles) on /terrain_costmap.",
+                default_value="false",
+                description="Load optional terrain_cost map on /terrain_costmap (needs terrain_layer in nav2.yaml).",
             ),
             DeclareLaunchArgument(
                 "terrain_cost_yaml",

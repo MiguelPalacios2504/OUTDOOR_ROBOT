@@ -15,6 +15,6 @@
   </xacro:if>
 
   <xacro:if value="$(arg use_camera)">
-    <xacro:bot_camera add_gazebo="false" />
+    <xacro:bot_camera mesh_dir="$(arg mesh_dir)" add_gazebo="false" />
   </xacro:if>
 </robot>

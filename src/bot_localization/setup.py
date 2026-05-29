@@ -15,10 +15,7 @@ setup(
         (f"share/{package_name}/config", ["config/localization.yaml"]),
         (
             f"share/{package_name}/launch",
-            [
-                "launch/localization.launch.py",
-                "launch/localization_rviz.launch.py",
-            ],
+            ["launch/localization.launch.py"],
         ),
         (f"share/{package_name}/rviz", ["rviz/localization.rviz"]),
         (
