@@ -1,225 +1,192 @@
 #include "motor_controller.hpp"
 
-MotorController *MotorController::instance_ = nullptr;
+MotorController* MotorController::_instances[MAX_MOTORS] = {
+    nullptr, nullptr, nullptr, nullptr
+};
 
-void MotorController::encoderIsr0() {
-  if (!instance_) {
-    return;
-  }
-  const MotorChannel &ch = instance_->channels_[0];
-  if (digitalRead(ch.enc_pin_b) != digitalRead(ch.enc_pin_a)) {
-    instance_->states_[0].encoder_ticks++;
-  } else {
-    instance_->states_[0].encoder_ticks--;
-  }
-}
-
-void MotorController::encoderIsr1() {
-  if (!instance_) {
-    return;
-  }
-  const MotorChannel &ch = instance_->channels_[1];
-  if (digitalRead(ch.enc_pin_b) != digitalRead(ch.enc_pin_a)) {
-    instance_->states_[1].encoder_ticks++;
-  } else {
-    instance_->states_[1].encoder_ticks--;
-  }
-}
-
-void MotorController::encoderIsr2() {
-  if (!instance_) {
-    return;
-  }
-  const MotorChannel &ch = instance_->channels_[2];
-  if (digitalRead(ch.enc_pin_b) != digitalRead(ch.enc_pin_a)) {
-    instance_->states_[2].encoder_ticks++;
-  } else {
-    instance_->states_[2].encoder_ticks--;
-  }
-}
-
-void MotorController::encoderIsr3() {
-  if (!instance_) {
-    return;
-  }
-  const MotorChannel &ch = instance_->channels_[3];
-  if (digitalRead(ch.enc_pin_b) != digitalRead(ch.enc_pin_a)) {
-    instance_->states_[3].encoder_ticks++;
-  } else {
-    instance_->states_[3].encoder_ticks--;
-  }
+MotorController::MotorController(
+    uint8_t motorID,
+    uint8_t pwmPin,
+    uint8_t dirPin,
+    uint8_t encoderPin
+)
+    : _motorID(motorID),
+      _pwmPin(pwmPin),
+      _dirPin(dirPin),
+      _encoderPin(encoderPin)
+{
 }
 
 void MotorController::begin() {
-  instance_ = this;
+    pinMode(_dirPin, OUTPUT);
+    pinMode(_pwmPin, OUTPUT);
+    pinMode(_encoderPin, INPUT_PULLUP);
 
-  for (uint8_t i = 0; i < NUM_DRIVE_MOTORS; ++i) {
-    pinMode(channels_[i].dir_pin, OUTPUT);
-    ledcSetup(i, PWM_FREQUENCY_HZ, PWM_RESOLUTION_BITS);
-    ledcAttachPin(channels_[i].pwm_pin, i);
-
-    states_[i] = MotorState{};
-    states_[i].last_update_ms = millis();
-    writeMotor(i, 0.0f);
-  }
-
-  if (MOTOR_USE_ENCODERS) {
-    attachEncoders();
-  }
-}
-
-void MotorController::attachEncoders() {
-  using IsrFn = void (*)();
-  const IsrFn isrs[NUM_DRIVE_MOTORS] = {encoderIsr0, encoderIsr1, encoderIsr2,
-                                        encoderIsr3};
-
-  for (uint8_t i = 0; i < NUM_DRIVE_MOTORS; ++i) {
-    pinMode(channels_[i].enc_pin_a, INPUT_PULLUP);
-    pinMode(channels_[i].enc_pin_b, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(channels_[i].enc_pin_a), isrs[i],
-                    CHANGE);
-  }
-}
-
-void MotorController::setSetpoint(uint8_t motor_index, float velocity) {
-  if (motor_index >= NUM_DRIVE_MOTORS) {
-    return;
-  }
-  if (velocity > 1.0f) {
-    velocity = 1.0f;
-  } else if (velocity < -1.0f) {
-    velocity = -1.0f;
-  }
-  if (fabsf(velocity) < CMD_DEADBAND) {
-    velocity = 0.0f;
-  }
-  states_[motor_index].setpoint = velocity;
-}
-
-void MotorController::applyAll(const float *velocities, uint8_t count) {
-  const uint8_t n = (count < NUM_DRIVE_MOTORS) ? count : NUM_DRIVE_MOTORS;
-  for (uint8_t i = 0; i < n; ++i) {
-    setSetpoint(i, velocities[i]);
-  }
-}
-
-void MotorController::update(uint32_t now_ms) {
-  for (uint8_t i = 0; i < NUM_DRIVE_MOTORS; ++i) {
-    MotorState &st = states_[i];
-    const uint32_t dt_ms = now_ms - st.last_update_ms;
-    if (dt_ms < 5) {
-      continue;
+    if (_motorID < MAX_MOTORS) {
+        _instances[_motorID] = this;
     }
 
-    const float dt_sec = static_cast<float>(dt_ms) * 0.001f;
-    st.last_update_ms = now_ms;
+    switch (_motorID) {
+        case 0:
+            attachInterrupt(digitalPinToInterrupt(_encoderPin), encoderISR0, RISING);
+            break;
+        case 1:
+            attachInterrupt(digitalPinToInterrupt(_encoderPin), encoderISR1, RISING);
+            break;
+        case 2:
+            attachInterrupt(digitalPinToInterrupt(_encoderPin), encoderISR2, RISING);
+            break;
+        case 3:
+            attachInterrupt(digitalPinToInterrupt(_encoderPin), encoderISR3, RISING);
+            break;
+    }
 
-    if (MOTOR_USE_ENCODERS) {
-      noInterrupts();
-      const int32_t ticks = st.encoder_ticks;
-      interrupts();
+    _lastUpdateTime = millis();
 
-      const int32_t delta_ticks = ticks - st.last_encoder_ticks;
-      st.last_encoder_ticks = ticks;
+    stop();
+}
 
-      const float ticks_per_sec = static_cast<float>(delta_ticks) / dt_sec;
-      st.measured = ticks_per_sec / MAX_TICKS_PER_SEC;
-      if (st.measured > 1.0f) {
-        st.measured = 1.0f;
-      } else if (st.measured < -1.0f) {
-        st.measured = -1.0f;
-      }
+void MotorController::setPID(float kp, float ki, float kd) {
+    _kp = kp;
+    _ki = ki;
+    _kd = kd;
+}
+
+void MotorController::setTargetRPM(float targetRPM) {
+    _targetRPM = targetRPM;
+}
+
+void MotorController::update() {
+    unsigned long now = millis();
+    unsigned long dtMs = now - _lastUpdateTime;
+
+    if (dtMs < _sampleTimeMs) {
+        return;
+    }
+
+    _lastUpdateTime = now;
+
+    float dt = dtMs / 1000.0;
+
+    long pulses = getAndResetEncoderCount();
+
+    float revolutions = (float)pulses / _countsPerRev;
+    float measuredRPM = (revolutions / dt) * 60.0;
+
+    _currentRPM = 0.7 * _currentRPM + 0.3 * measuredRPM;
+
+    if (_targetRPM == 0) {
+        stop();
+        _integral = 0.0;
+        _previousError = 0.0;
+        _pwmOutput = 0;
+        return;
+    }
+
+    float targetAbsRPM = abs(_targetRPM);
+    float error = targetAbsRPM - _currentRPM;
+
+    _integral += error * dt;
+
+    if (_integral > 200) _integral = 200;
+    if (_integral < -200) _integral = -200;
+
+    float derivative = (error - _previousError) / dt;
+    _previousError = error;
+
+    float output = (_kp * error) + (_ki * _integral) + (_kd * derivative);
+
+    float minPWM = 25;
+    float desiredPWM = minPWM + output;
+
+    if (desiredPWM > 255) desiredPWM = 255;
+    if (desiredPWM < 0) desiredPWM = 0;
+
+    int maxStep = 5;
+
+    if (desiredPWM > _pwmOutput + maxStep) {
+        _pwmOutput += maxStep;
+    } else if (desiredPWM < _pwmOutput - maxStep) {
+        _pwmOutput -= maxStep;
     } else {
-      // Sin encoder: solo feedforward (no hay medición real de velocidad)
-      st.measured = 0.0f;
+        _pwmOutput = desiredPWM;
     }
 
-    const float error = st.setpoint - st.measured;
-    float command = 0.0f;
-    if (MOTOR_USE_ENCODERS) {
-      const float pid_out = computePid(i, error, dt_sec);
-      command = (KFF * st.setpoint) + pid_out;
+    if (_targetRPM > 0) {
+        moveForward(_pwmOutput);
     } else {
-      command = st.setpoint;
-    }
-    if (command > 1.0f) {
-      command = 1.0f;
-    } else if (command < -1.0f) {
-      command = -1.0f;
+        moveBackward(_pwmOutput);
     }
 
-    st.output = command;
-    writeMotor(i, command);
-  }
+    Serial.print("Motor ");
+    Serial.print(_motorID);
+    Serial.print(" | Target RPM: ");
+    Serial.print(_targetRPM);
+    Serial.print(" | Measured RPM: ");
+    Serial.print(measuredRPM);
+    Serial.print(" | Filtered RPM: ");
+    Serial.print(_currentRPM);
+    Serial.print(" | PWM: ");
+    Serial.println(_pwmOutput);
 }
 
-float MotorController::computePid(uint8_t index, float error, float dt_sec) {
-  if (dt_sec <= 0.0f) {
-    return 0.0f;
-  }
-
-  MotorState &st = states_[index];
-
-  st.integral += error * dt_sec;
-  if (st.integral > gains_.i_clamp) {
-    st.integral = gains_.i_clamp;
-  } else if (st.integral < -gains_.i_clamp) {
-    st.integral = -gains_.i_clamp;
-  }
-
-  const float derivative = (error - st.last_error) / dt_sec;
-  st.last_error = error;
-
-  float out = (gains_.kp * error) + (gains_.ki * st.integral) +
-              (gains_.kd * derivative);
-
-  if (out > gains_.out_max) {
-    out = gains_.out_max;
-  } else if (out < -gains_.out_max) {
-    out = -gains_.out_max;
-  }
-
-  return out;
+void MotorController::moveForward(uint8_t speed) {
+    digitalWrite(_dirPin, LOW);
+    analogWrite(_pwmPin, speed);
 }
 
-void MotorController::stopAll() {
-  for (uint8_t i = 0; i < NUM_DRIVE_MOTORS; ++i) {
-    states_[i].setpoint = 0.0f;
-    states_[i].output = 0.0f;
-    states_[i].integral = 0.0f;
-    states_[i].last_error = 0.0f;
-    writeMotor(i, 0.0f);
-  }
+void MotorController::moveBackward(uint8_t speed) {
+    digitalWrite(_dirPin, HIGH);
+    analogWrite(_pwmPin, speed);
 }
 
-float MotorController::getSetpoint(uint8_t motor_index) const {
-  return (motor_index < NUM_DRIVE_MOTORS) ? states_[motor_index].setpoint : 0.0f;
+void MotorController::stop() {
+    analogWrite(_pwmPin, 0);
 }
 
-float MotorController::getMeasuredVelocity(uint8_t motor_index) const {
-  return (motor_index < NUM_DRIVE_MOTORS) ? states_[motor_index].measured : 0.0f;
+long MotorController::getEncoderCount() {
+    noInterrupts();
+    long count = _encoderCount;
+    interrupts();
+    return count;
 }
 
-float MotorController::getOutput(uint8_t motor_index) const {
-  return (motor_index < NUM_DRIVE_MOTORS) ? states_[motor_index].output : 0.0f;
+long MotorController::getAndResetEncoderCount() {
+    noInterrupts();
+    long count = _encoderCount;
+    _encoderCount = 0;
+    interrupts();
+    return count;
 }
 
-void MotorController::writeMotor(uint8_t motor_index, float velocity) {
-  if (motor_index >= NUM_DRIVE_MOTORS) {
-    return;
-  }
+float MotorController::getCurrentRPM() {
+    return _currentRPM;
+}
 
-  const MotorChannel &ch = channels_[motor_index];
+void IRAM_ATTR MotorController::handleEncoderInterrupt() {
+    _encoderCount++;
+}
 
-  if (velocity > 1.0f) {
-    velocity = 1.0f;
-  } else if (velocity < -1.0f) {
-    velocity = -1.0f;
-  }
+void IRAM_ATTR MotorController::encoderISR0() {
+    if (_instances[0] != nullptr) {
+        _instances[0]->handleEncoderInterrupt();
+    }
+}
 
-  const bool forward = velocity >= 0.0f;
-  digitalWrite(ch.dir_pin, forward ? HIGH : LOW);
+void IRAM_ATTR MotorController::encoderISR1() {
+    if (_instances[1] != nullptr) {
+        _instances[1]->handleEncoderInterrupt();
+    }
+}
 
-  const uint8_t duty = static_cast<uint8_t>(fabsf(velocity) * 255.0f);
-  ledcWrite(motor_index, duty);
+void IRAM_ATTR MotorController::encoderISR2() {
+    if (_instances[2] != nullptr) {
+        _instances[2]->handleEncoderInterrupt();
+    }
+}
+
+void IRAM_ATTR MotorController::encoderISR3() {
+    if (_instances[3] != nullptr) {
+        _instances[3]->handleEncoderInterrupt();
+    }
 }
