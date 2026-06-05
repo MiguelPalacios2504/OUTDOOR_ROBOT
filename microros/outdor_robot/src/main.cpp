@@ -27,4 +27,5 @@ void setup() {
 void loop() {
     motor1.update();
     motor2.update();
+    motor2.update();
 }
