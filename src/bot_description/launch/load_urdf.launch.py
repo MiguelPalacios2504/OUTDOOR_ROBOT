@@ -13,6 +13,10 @@ def generate_launch_description():
     urdf_file = LaunchConfiguration("urdf_file")
     controllers_file = LaunchConfiguration("controllers_file")
     mesh_dir = LaunchConfiguration("mesh_dir")
+    enable_ros2_control = LaunchConfiguration("enable_ros2_control")
+    ros2_control_name = LaunchConfiguration("ros2_control_name")
+    ros2_control_plugin = LaunchConfiguration("ros2_control_plugin")
+    use_hw_topics = LaunchConfiguration("use_hw_topics")
 
     default_gazebo_xacro = PathJoinSubstitution(
         [FindPackageShare("bot_description"), "urdf", "bot_v1.gazebo.xacro"]
@@ -33,6 +37,14 @@ def generate_launch_description():
             use_lidar,
             " use_camera:=",
             use_camera,
+            " enable_ros2_control:=",
+            enable_ros2_control,
+            " ros2_control_name:=",
+            ros2_control_name,
+            " ros2_control_plugin:=",
+            ros2_control_plugin,
+            " use_hw_topics:=",
+            use_hw_topics,
         ]
     )
 
@@ -68,6 +80,28 @@ def generate_launch_description():
                 "mesh_dir",
                 default_value="package://bot_description/meshes",
                 description="Mesh URI root passed to xacro (file://... for Gazebo).",
+            ),
+            DeclareLaunchArgument(
+                "enable_ros2_control",
+                default_value="false",
+                description="Include ros2_control block from bot_v1.urdf.xacro (real hardware).",
+                choices=["true", "True", "false", "False"],
+            ),
+            DeclareLaunchArgument(
+                "ros2_control_name",
+                default_value="bot_real_system",
+                description="ros2_control system name when enable_ros2_control is true.",
+            ),
+            DeclareLaunchArgument(
+                "ros2_control_plugin",
+                default_value="bot_hardware_interface/BotInterface",
+                description="ros2_control hardware plugin when enable_ros2_control is true.",
+            ),
+            DeclareLaunchArgument(
+                "use_hw_topics",
+                default_value="false",
+                description="Pass /hw/joint_* topic params to the hardware plugin.",
+                choices=["true", "True", "false", "False"],
             ),
             Node(
                 package="robot_state_publisher",

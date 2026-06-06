@@ -9,22 +9,7 @@
   <xacro:include filename="bot_v1.core.xacro" />
   <xacro:include filename="bot_v1.lidar.xacro" />
   <xacro:include filename="bot_v1.camera.xacro" />
-
-  <xacro:macro name="ros2_control_position_joint" params="joint_name">
-    <joint name="${joint_name}">
-      <command_interface name="position" />
-      <state_interface name="position" />
-      <state_interface name="velocity" />
-    </joint>
-  </xacro:macro>
-
-  <xacro:macro name="ros2_control_velocity_joint" params="joint_name">
-    <joint name="${joint_name}">
-      <command_interface name="velocity" />
-      <state_interface name="position" />
-      <state_interface name="velocity" />
-    </joint>
-  </xacro:macro>
+  <xacro:include filename="bot_v1.ros2_control.xacro" />
 
   <xacro:bot_robot mesh_dir="$(arg mesh_dir)" />
 
@@ -44,21 +29,9 @@
     </sensor>
   </gazebo>
 
-  <ros2_control name="bot_gazebo_system" type="system">
-    <hardware>
-      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
-    </hardware>
-
-    <xacro:ros2_control_position_joint joint_name="f_left_steer" />
-    <xacro:ros2_control_position_joint joint_name="f_right_steer" />
-    <xacro:ros2_control_position_joint joint_name="b_leftsteer" />
-    <xacro:ros2_control_position_joint joint_name="b_rightsteer" />
-
-    <xacro:ros2_control_velocity_joint joint_name="f_leftwheel" />
-    <xacro:ros2_control_velocity_joint joint_name="f_rightwheel" />
-    <xacro:ros2_control_velocity_joint joint_name="b_leftwheel" />
-    <xacro:ros2_control_velocity_joint joint_name="b_rightwheel" />
-  </ros2_control>
+  <xacro:bot_ros2_control_hardware
+    name="bot_gazebo_system"
+    plugin="gz_ros2_control/GazeboSimSystem" />
 
   <gazebo>
     <plugin
@@ -76,6 +49,7 @@
       name="gz_ros2_control::GazeboSimROS2ControlPlugin">
       <ros>
         <namespace>/</namespace>
+        <parameter name="use_sim_time">true</parameter>
       </ros>
       <robot_param>robot_description</robot_param>
       <robot_param_node>robot_state_publisher</robot_param_node>

@@ -1,0 +1,10 @@
+<library path="bot_hardware_interface">
+  <class
+    name="bot_hardware_interface/BotInterface"
+    type="bot_hardware_interface::BotInterface"
+    base_class_type="hardware_interface::SystemInterface">
+    <description>
+      Topic bridge between ros2_control and the robot firmware (micro-ROS / ESP32).
+    </description>
+  </class>
+</library>

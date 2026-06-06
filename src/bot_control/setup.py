@@ -32,6 +32,7 @@ setup(
         "console_scripts": [
             "joint_command_bridge = bot_control.joint_command_bridge:main",
             "swerve_cmd_node = bot_control.swerve_cmd_node:main",
+            "hw_firmware_mock = bot_control.hw_firmware_mock:main",
         ],
     },
 )
