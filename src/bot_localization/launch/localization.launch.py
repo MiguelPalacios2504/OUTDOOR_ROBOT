@@ -31,6 +31,7 @@ def all_configs(*conditions: PythonExpression) -> PythonExpression:
 def generate_launch_description():
     localization_share = Path(get_package_share_directory("bot_localization"))
     enable_laser_odometry = LaunchConfiguration("enable_laser_odometry")
+    enable_gps = LaunchConfiguration("enable_gps")
     enable_slam = LaunchConfiguration("enable_slam")
     enable_saved_map_localization = LaunchConfiguration("enable_saved_map_localization")
     map_yaml_file = LaunchConfiguration("map_yaml_file")
@@ -40,6 +41,8 @@ def generate_launch_description():
     localization_params = str(localization_share / "config" / "localization.yaml")
     default_map_yaml = str(localization_share / "maps" / "arena_map.yaml")
     default_rviz_config = str(localization_share / "rviz" / "localization.rviz")
+    sim_time_param = {"use_sim_time": use_sim_time}
+
     slam_condition = IfCondition(
         all_configs(
             config_is_true(enable_slam),
@@ -48,12 +51,36 @@ def generate_launch_description():
     )
     saved_map_localization_condition = IfCondition(config_is_true(enable_saved_map_localization))
 
+    gps_odom_fusion = {
+        "odom2": "/odometry/gps",
+        "odom2_config": [
+            True,
+            True,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+        ],
+        "odom2_queue_size": 10,
+        "odom2_differential": False,
+        "odom2_relative": False,
+    }
+
     localization_input = Node(
         package="bot_localization",
         executable="localization_input_node",
         name="localization_input_node",
         output="screen",
-        parameters=[localization_params],
+        parameters=[localization_params, sim_time_param],
     )
 
     laser_odometry = Node(
@@ -62,7 +89,21 @@ def generate_launch_description():
         name="laser_odometry_node",
         output="screen",
         condition=IfCondition(enable_laser_odometry),
-        parameters=[localization_params],
+        parameters=[localization_params, sim_time_param],
+    )
+
+    navsat_transform = Node(
+        package="robot_localization",
+        executable="navsat_transform_node",
+        name="navsat_transform_node",
+        output="screen",
+        condition=IfCondition(enable_gps),
+        parameters=[localization_params, sim_time_param],
+        remappings=[
+            ("/imu", "/imu/data/filtered"),
+            ("/gps/fix", "/gps/fix"),
+            ("/odometry/filtered", "/wheel/odom"),
+        ],
     )
 
     ekf_with_laser = Node(
@@ -70,8 +111,21 @@ def generate_launch_description():
         executable="ekf_node",
         name="ekf_filter_node",
         output="screen",
-        condition=IfCondition(enable_laser_odometry),
-        parameters=[localization_params],
+        condition=IfCondition(
+            all_configs(config_is_true(enable_laser_odometry), config_is_false(enable_gps))
+        ),
+        parameters=[localization_params, sim_time_param],
+    )
+
+    ekf_with_laser_and_gps = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name="ekf_filter_node",
+        output="screen",
+        condition=IfCondition(
+            all_configs(config_is_true(enable_laser_odometry), config_is_true(enable_gps))
+        ),
+        parameters=[localization_params, sim_time_param, gps_odom_fusion],
     )
 
     ekf_without_laser = Node(
@@ -79,9 +133,47 @@ def generate_launch_description():
         executable="ekf_node",
         name="ekf_filter_node",
         output="screen",
-        condition=UnlessCondition(enable_laser_odometry),
+        condition=IfCondition(
+            all_configs(config_is_false(enable_laser_odometry), config_is_false(enable_gps))
+        ),
         parameters=[
             localization_params,
+            sim_time_param,
+            {
+                "odom1": "",
+                "odom1_config": [
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                ],
+            },
+        ],
+    )
+
+    ekf_without_laser_with_gps = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name="ekf_filter_node",
+        output="screen",
+        condition=IfCondition(
+            all_configs(config_is_false(enable_laser_odometry), config_is_true(enable_gps))
+        ),
+        parameters=[
+            localization_params,
+            sim_time_param,
+            gps_odom_fusion,
             {
                 "odom1": "",
                 "odom1_config": [
@@ -112,7 +204,7 @@ def generate_launch_description():
         namespace="",
         output="screen",
         condition=slam_condition,
-        parameters=[localization_params],
+        parameters=[localization_params, sim_time_param],
     )
 
     configure_slam = LifecycleTransition(
@@ -144,6 +236,7 @@ def generate_launch_description():
         condition=saved_map_localization_condition,
         parameters=[
             localization_params,
+            sim_time_param,
             {
                 "yaml_filename": map_yaml_file,
             },
@@ -157,7 +250,7 @@ def generate_launch_description():
         namespace="",
         output="screen",
         condition=saved_map_localization_condition,
-        parameters=[localization_params],
+        parameters=[localization_params, sim_time_param],
     )
 
     lifecycle_manager_localization = Node(
@@ -167,12 +260,12 @@ def generate_launch_description():
         output="screen",
         condition=saved_map_localization_condition,
         parameters=[
+            sim_time_param,
             {
-                "use_sim_time": use_sim_time,
                 "autostart": True,
                 "bond_timeout": 0.0,
                 "node_names": ["map_server", "amcl"],
-            }
+            },
         ],
     )
 
@@ -183,7 +276,7 @@ def generate_launch_description():
         output="screen",
         condition=IfCondition(use_rviz),
         arguments=["-d", rviz_config],
-        parameters=[{"use_sim_time": use_sim_time}],
+        parameters=[sim_time_param],
     )
 
     return LaunchDescription(
@@ -192,6 +285,11 @@ def generate_launch_description():
                 "enable_laser_odometry",
                 default_value="true",
                 description="Start laser odometry and fuse /laser/odom into the EKF.",
+            ),
+            DeclareLaunchArgument(
+                "enable_gps",
+                default_value="false",
+                description="Fuse GPS via navsat_transform_node (/odometry/gps into EKF).",
             ),
             DeclareLaunchArgument(
                 "enable_slam",
@@ -228,7 +326,10 @@ def generate_launch_description():
             ),
             localization_input,
             laser_odometry,
+            navsat_transform,
+            ekf_with_laser_and_gps,
             ekf_with_laser,
+            ekf_without_laser_with_gps,
             ekf_without_laser,
             slam_toolbox_node,
             configure_slam,

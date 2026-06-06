@@ -1,19 +1,39 @@
 # bot_bringup
 
-**Solo robot real.**
+Real robot launches.
+
+## Layers
+
+| Launch | What it starts |
+|---|---|
+| `real_robot.launch.py` | URDF, ros2_control, swerve, firmware mock |
+| `real_autonomy.launch.py` | real_robot + sensors + localization + optional Nav2 |
+
+## Quick start (bench, all mocks)
 
 ```bash
 source install/setup.bash
-ros2 launch bot_bringup real_robot.launch.py
+ros2 launch bot_bringup real_autonomy.launch.py use_rviz:=true
 ```
 
-`real_robot.launch.py` levanta URDF real, `ros2_control`, controllers, swerve control y (por defecto) `hw_firmware_mock` para probar sin ESP32.
+## Typical modes
 
-Alias: `ros2 launch bot_bringup bringup.launch.py`
+```bash
+# 1 — only base robot + control
+ros2 launch bot_bringup real_robot.launch.py
 
-Argumentos útiles:
+# 2 — full stack with saved map + Nav2
+ros2 launch bot_bringup real_autonomy.launch.py \\
+  use_mock_firmware:=false use_mock_sensors:=false \\
+  enable_navigation:=true use_rviz:=true
 
-- `use_mock_firmware:=false` — cuando la ESP32/micro-ROS publique `/hw/joint_states`
-- `use_rviz:=true` — visualización opcional
+# 3 — outdoor mapping (SLAM)
+ros2 launch bot_bringup real_autonomy.launch.py \\
+  enable_slam:=true enable_saved_map_localization:=false \\
+  enable_navigation:=false use_rviz:=true
 
-Simulación → `bot_gazebo`. Localización → `bot_localization`. Navegación → `bot_planning`.
+# 4 — GPS fusion (needs real /gps/fix)
+ros2 launch bot_bringup real_autonomy.launch.py enable_gps:=true
+```
+
+Simulación sin cambios: `ros2 launch bot_gazebo simulation.launch.py`

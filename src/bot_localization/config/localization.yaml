@@ -63,10 +63,11 @@ ekf_filter_node:
     world_frame: odom
 
     odom0: /wheel/odom
+    # Holonomic 4WIS: fuse vx, vy, and yaw rate from wheel odometry.
     odom0_config: [false, false, false,
                    false, false, false,
-                   true, false, false,
-                   false, false, false,
+                   true, true, false,
+                   false, false, true,
                    false, false, false]
     odom0_queue_size: 10
     odom0_differential: false
@@ -234,6 +235,23 @@ slam_toolbox:
     ceres_trust_strategy: LEVENBERG_MARQUARDT
     ceres_dogleg_type: TRADITIONAL_DOGLEG
     ceres_loss_function: None
+
+navsat_transform_node:
+  ros__parameters:
+    use_sim_time: true
+    frequency: 10.0
+    delay: 0.0
+    magnetic_declination_radians: 0.0
+    yaw_offset: 0.0
+    zero_altitude: true
+    broadcast_utm_transform: false
+    publish_filtered_gps: false
+    use_odometry_yaw: true
+    wait_for_datum: false
+    gps_topic: /gps/fix
+    imu_topic: /imu/data/filtered
+    odometry_topic: /wheel/odom
+    datum: [0.0, 0.0, 0.0]
 
 map_server:
   ros__parameters:
