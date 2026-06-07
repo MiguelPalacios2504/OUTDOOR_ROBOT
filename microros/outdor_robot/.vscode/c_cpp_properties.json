@@ -10,6 +10,10 @@
             "includePath": [
                 "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/include",
                 "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/src",
+                "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/micro_ros_platformio",
+                "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/micro_ros_platformio/libmicroros/include",
+                "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/micro_ros_platformio/platform_code",
+                "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/micro_ros_platformio/platform_code/arduino/serial",
                 "/home/celeste/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/newlib/platform_include",
                 "/home/celeste/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include",
                 "/home/celeste/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include/esp_additions/freertos",
@@ -246,6 +250,10 @@
                 "path": [
                     "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/include",
                     "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/src",
+                    "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/micro_ros_platformio",
+                    "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/micro_ros_platformio/libmicroros/include",
+                    "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/micro_ros_platformio/platform_code",
+                    "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/micro_ros_platformio/platform_code/arduino/serial",
                     "/home/celeste/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/newlib/platform_include",
                     "/home/celeste/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include",
                     "/home/celeste/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include/esp_additions/freertos",
@@ -498,6 +506,8 @@
                 "ARDUINO_VARIANT=\"esp32-evb\"",
                 "ARDUINO_BOARD=\"OLIMEX ESP32-EVB\"",
                 "ARDUINO_PARTITION_default",
+                "MICRO_ROS_TRANSPORT_ARDUINO_SERIAL=1",
+                "MICRO_ROS_DISTRO_JAZZY =1",
                 ""
             ],
             "cStandard": "gnu99",

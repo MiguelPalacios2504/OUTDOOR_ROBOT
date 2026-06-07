@@ -117,17 +117,6 @@ void MotorController::update() {
     } else {
         moveBackward(_pwmOutput);
     }
-
-    Serial.print("Motor ");
-    Serial.print(_motorID);
-    Serial.print(" | Target RPM: ");
-    Serial.print(_targetRPM);
-    Serial.print(" | Measured RPM: ");
-    Serial.print(measuredRPM);
-    Serial.print(" | Filtered RPM: ");
-    Serial.print(_currentRPM);
-    Serial.print(" | PWM: ");
-    Serial.println(_pwmOutput);
 }
 
 void MotorController::moveForward(uint8_t speed) {

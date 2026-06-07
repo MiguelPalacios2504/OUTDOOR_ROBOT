@@ -120,3 +120,41 @@ Espera T1 antes de T2; T2 (`/map`, AMCL) antes de T3. En RViz (T2): **2D Goal Po
 ## Maps
 
 Saved maps for localization live under `maps/` at the workspace root (e.g. `maps/arena_map.yaml`).
+
+
+
+nuevo 
+lanzar real 
+
+
+ros2 launch bot_bringup real_autonomy.launch.py 
+
+
+teleoperar teckado 
+ros2 run teleop_twist_keyboard teleop_twist_keyboard 
+
+
+
+lanzar microros 
+
+conda deactivate
+export ROS_DOMAIN_ID=0
+export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+source /opt/ros/jazzy/setup.bash
+ros2 daemon stop
+ros2 daemon start
+ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/ttyUSB0 -b 115200 -v6
+
+
+
+
+para ver los topicos 
+
+conda deactivate
+export ROS_DOMAIN_ID=0
+export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+source /opt/ros/jazzy/setup.bash
+
+ros2 node list
+ros2 topic list
+ros2 topic echo /hw/joint_states
