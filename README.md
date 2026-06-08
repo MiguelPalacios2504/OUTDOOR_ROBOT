@@ -1,6 +1,6 @@
 # OUTDOOR_ROBOT — `3d_development` branch
 
-ROS 2 workspace for **3D simulation** of the outdoor **bot** platform (4WIS/4WID): FAST-LIO2 mapping, saved PCD maps, and scan-to-map relocalization. Nav2 / 2D planning lives on `development`.
+ROS 2 workspace for **3D simulation** of the outdoor **bot** platform (4WIS/4WID): FAST-LIO2 mapping, saved PCD maps, and scan-to-map relocalization. Nav2 and 2D planning live on `development`.
 
 ---
 
