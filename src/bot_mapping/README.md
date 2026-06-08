@@ -141,6 +141,38 @@ If mapping is slow, increase `point_filter_num` (e.g. 8–10) or reduce `horizon
 
 ---
 
+## 6. 3D localization (saved PCD, no offline preprocessing)
+
+Relocalize in a pre-built map using the [FAST-LIO localization](https://github.com/HViktorTsoi/FAST_LIO_LOCALIZATION) pattern: FAST-LIO provides high-rate odometry; `global_localization` runs scan-to-map ICP against the saved `.pcd` (loaded as-is).
+
+**Python dep (once, for ICP):**
+
+```bash
+pip3 install --break-system-packages open3d
+```
+
+See root `README.md` **Part 2** for the full four-terminal localization workflow.
+
+Launch only (RViz via `bot_gazebo sim_rviz.launch.py`):
+
+```bash
+ros2 launch bot_mapping fast_lio_localization.launch.py use_sim_time:=true \
+  pcd_map_path:=$(pwd)/maps/mi_mapa_sim.pcd
+```
+
+Initial pose: RViz **2D Pose Estimate** or `publish_initial_pose`. Keep the robot still until `Localization OK`.
+
+| Topic | Frame | Role |
+|-------|-------|------|
+| `/map` | `map` | Saved PCD for RViz **SavedMap** |
+| `/cloud_registered` | `camera_init` | Live scan (FAST-LIO) |
+| `/map_to_odom` | `map` | ICP correction |
+| `/localization` | `map` → `body` | Fused pose in map |
+
+RViz **Fixed Frame**: `map`. Use `bot_gazebo` `sim_rviz.launch.py` (not localization’s own RViz).
+
+---
+
 ## Architecture
 
 ```text

@@ -15,30 +15,42 @@ Visualization Manager:
     - Class: rviz_default_plugins/TF
       Enabled: true
       Name: TF
-    - Class: rviz_default_plugins/Odometry
-      Enabled: true
-      Name: FAST-LIO Odometry
-      Topic:
-        Value: /Odometry
-    - Class: rviz_default_plugins/Path
-      Enabled: true
-      Name: FAST-LIO Path
-      Topic:
-        Value: /path
     - Class: rviz_default_plugins/PointCloud2
       Enabled: true
-      Name: Registered Cloud
+      Name: Saved Map
+      Size (m): 0.05
+      Topic:
+        Value: /map
+    - Class: rviz_default_plugins/PointCloud2
+      Enabled: true
+      Name: Live Scan
+      Color: 0; 255; 0
+      Size (m): 0.08
       Topic:
         Value: /cloud_registered
     - Class: rviz_default_plugins/PointCloud2
       Enabled: true
-      Name: Global Map
+      Name: Scan In Map
+      Color: 255; 255; 0
+      Size (m): 0.08
       Topic:
-        Value: /Laser_map
+        Value: /cur_scan_in_map
+    - Class: rviz_default_plugins/Odometry
+      Enabled: true
+      Name: Localization
+      Topic:
+        Value: /localization
+    - Class: rviz_default_plugins/Path
+      Enabled: true
+      Name: Path
+      Topic:
+        Value: /path
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: camera_init
+    Fixed Frame: map
   Tools:
-    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/SetInitialPose
+      Topic:
+        Value: /initialpose
     - Class: rviz_default_plugins/MoveCamera
   Value: true

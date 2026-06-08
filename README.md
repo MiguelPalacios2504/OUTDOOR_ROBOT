@@ -1,6 +1,6 @@
 # OUTDOOR_ROBOT — `3d_development` branch
 
-ROS 2 workspace for **3D simulation** of the outdoor **bot** platform (4WIS/4WID). This branch keeps only the sim stack; localization and planning live on `development`.
+ROS 2 workspace for **3D simulation** of the outdoor **bot** platform (4WIS/4WID): FAST-LIO2 mapping, saved PCD maps, and scan-to-map relocalization. Nav2 / 2D planning lives on `development`.
 
 ---
 
@@ -12,90 +12,170 @@ src/
 ├── bot_control/         # Swerve kinematics, cmd + joint bridge
 ├── bot_gazebo/          # Gazebo Sim, ros2_control, simulation launch
 ├── bot_teleoperation/   # Keyboard teleop (/cmd_vel)
-├── bot_mapping/         # FAST-LIO2 3D mapping (lidar + IMU)
+├── bot_mapping/         # FAST-LIO2 mapping + 3D localization
 └── bot_debug/           # CSV logging and plotting tools
 ```
 
 ---
 
-## Build
+## Build (once per machine)
 
 ```bash
-cd /path/to/OUTDOOR_ROBOT
-source /opt/ros/<DISTRO>/setup.bash
+cd ~/Documents/GITHUB/OUTDOOR_ROBOT
+source /opt/ros/jazzy/setup.bash
+
+# After switching branches, use a clean overlay:
+rm -rf build install log
+
 colcon build --symlink-install
 source install/setup.bash
 ```
 
-On `3d_development`, use a **fresh** overlay after switching branches (stale `install/bot_planning` breaks Gazebo launch):
+**Localization Python dependency (ICP):**
 
 ```bash
-rm -rf build install log
-colcon build --symlink-install
-source install/setup.bash   # new terminal or re-source after clean
+pip3 install --break-system-packages open3d
+```
+
+In every new terminal:
+
+```bash
+source ~/Documents/GITHUB/OUTDOOR_ROBOT/install/setup.bash
 ```
 
 ---
 
-## Simulation
+## Part 1 — Create a 3D map (FAST-LIO2)
+
+Use **four terminals**. Press **Play** in Gazebo and wait ~40 s for lidar data.
+
+**Terminal 1 — Gazebo**
 
 ```bash
 ros2 launch bot_gazebo sim_swerve.launch.py
 ```
 
-**Teleop** (second terminal, Gazebo playing):
+**Terminal 2 — RViz** (`sim_lidar.rviz`: lidar, live `/Laser_map`, robot)
+
+```bash
+ros2 launch bot_gazebo sim_rviz.launch.py
+```
+
+In RViz: **Fixed Frame** → `camera_init`, enable **PointCloud2** → `/Laser_map` if needed.
+
+**Terminal 3 — Teleop**
 
 ```bash
 ros2 launch bot_teleoperation teleop.launch.py use_sim_time:=true
 ```
 
-Focus the teleop terminal. Holonomic: `w/a/s/d` + diagonals, `q/e` or `z/c` for yaw, arrows OK, `x` stop. See `bot_teleoperation/README.md`.
+Drive slowly with `w/a/s/d`, yaw `q/e`, stop `x`. Cover the full area.
 
-Optional: `use_lidar:=true`, `use_camera:=true`, `use_gnss:=true` (defaults in `bot_gazebo/config/sim_swerve.yaml`).
-
-**GNSS** (`sensor_msgs/NavSatFix` on `/gnss/fix`, frame `gnss_link`). World origin WGS84 in `bot_description/config/bot_gnss.yaml` (must match `bot_gazebo/worlds/*.world.sdf`):
+**Terminal 4 — FAST-LIO mapping**
 
 ```bash
-ros2 topic echo /gnss/fix --once -s
-ros2 topic hz /gnss/fix -s
+ros2 launch bot_mapping fast_lio.launch.py use_sim_time:=true
 ```
 
-3D LiDAR: **Unitree 4D-LiDAR L2** per datasheet in `bot_description/config/unitree_4d_lidar_l2.yaml` — Gazebo base topic `/lidar` (Harmonic appends `/points` for `PointCloudPacked`, same as [MOGI-ROS Week-5-6](https://github.com/MOGI-ROS/Week-5-6-Gazebo-sensors) `scan` + `scan/points`). ROS: `/lidar` (`LaserScan`), `/lidar/points` (`PointCloud2`), frame `lidar_link`.
-
-**Check lidar (second terminal, sim must be running):**
+If FAST-LIO crashes or logs `No Effective Points`:
 
 ```bash
-source install/setup.bash
-# Sim running, Gazebo Play (not paused), ~40 s after spawn
+ros2 launch bot_mapping fast_lio.launch.py use_sim_time:=true \
+  use_lidar_adapter:=false config_file:=fast_lio_unitree_l2_sim.yaml
+```
 
-# Gazebo transport (note: -l list, -f frequency; NOT "gz topic list")
-gz topic -l | grep lidar
-gz topic -i -t /lidar/points    # expect PointCloudPacked
-gz topic -f -t /lidar/points
+**Save the map**
 
-# ROS (bridged by sim_bridge in ros_gz_bridge.yaml)
-ros2 node list | grep sim_bridge
-ros2 topic list | grep lidar
+```bash
+ros2 service call /map_save std_srvs/srv/Trigger
+cp /tmp/fast_lio_map.pcd ~/Documents/GITHUB/OUTDOOR_ROBOT/maps/my_map.pcd
+```
+
+Verify (optional):
+
+```bash
+pcl_viewer ~/Documents/GITHUB/OUTDOOR_ROBOT/maps/my_map.pcd
+ros2 topic hz /Laser_map -s
+```
+
+---
+
+## Part 2 — 3D localization (saved PCD)
+
+Load a map **as-is** (no offline preprocessing). Default map: `maps/mi_mapa_sim.pcd`.
+
+Use **four terminals**. Keep the robot **still** until logs show `Localization OK`.
+
+**Terminal 1 — Gazebo**
+
+```bash
+ros2 launch bot_gazebo sim_swerve.launch.py
+```
+
+**Terminal 2 — RViz** (includes **SavedMap** `/map` and **2D Pose Estimate** → `/initialpose`)
+
+```bash
+ros2 launch bot_gazebo sim_rviz.launch.py
+```
+
+Set **Fixed Frame** → `map` to view the saved map and robot together.
+
+**Terminal 3 — Teleop**
+
+```bash
+ros2 launch bot_teleoperation teleop.launch.py use_sim_time:=true
+```
+
+**Terminal 4 — Localization** (no RViz window)
+
+```bash
+ros2 launch bot_mapping fast_lio_localization.launch.py use_sim_time:=true \
+  pcd_map_path:=$(pwd)/maps/mi_mapa_sim.pcd
+```
+
+**Initial pose** (required once):
+
+- RViz: tool **2D Pose Estimate** on the map (rough guess where the robot is), or
+- Terminal:
+
+```bash
+ros2 run bot_mapping publish_initial_pose 0 0 0 0 0 0 --ros-args -p use_sim_time:=true
+```
+
+**Check**
+
+```bash
+ros2 topic hz /map -s
+ros2 topic hz /localization -s
+```
+
+| Topic | Frame | Role |
+|-------|-------|------|
+| `/map` | `map` | Saved PCD (RViz **SavedMap**) |
+| `/cloud_registered` | `camera_init` | Live scan |
+| `/localization` | `map` → `body` | Fused pose in map |
+
+More detail: `src/bot_mapping/README.md`.
+
+---
+
+## Simulation quick reference
+
+```bash
+ros2 launch bot_gazebo sim_swerve.launch.py
+ros2 launch bot_teleoperation teleop.launch.py use_sim_time:=true
+```
+
+3D LiDAR: `/lidar/points` (`PointCloud2`), frame `lidar_link`. Check after Play:
+
+```bash
 ros2 topic hz /lidar/points -s
-ros2 topic echo /lidar/points --once -s --qos-reliability best_effort
 ```
 
-If `/lidar/points` is missing: clean rebuild (`rm -rf build install log && colcon build`). If the topic exists but no data: unpause Gazebo, wait longer, or use `use_camera:=false` for GPU headroom.
-
-Visualize the model without Gazebo:
-
-```bash
-ros2 launch bot_description display.launch.py
-```
-
-Debug logging:
-
-```bash
-ros2 launch bot_debug debug_tools.launch.py
-```
+If `/lidar/points` is missing: clean rebuild. If no data: unpause Gazebo, wait ~40 s, or `use_camera:=false`.
 
 ---
 
 ## Other branches
 
-- **`development`** — full stack: `bot_localization`, `bot_planning`, maps, Nav2.
+- **`development`** — 2D stack: `bot_localization`, `bot_planning`, occupancy maps, Nav2.
