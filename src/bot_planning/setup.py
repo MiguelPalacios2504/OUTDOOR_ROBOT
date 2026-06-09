@@ -16,6 +16,7 @@ setup(
             [
                 "config/nav2.yaml",
                 "config/navigate_to_pose_w_replanning_and_recovery.xml",
+                "config/navigate_through_poses_w_replanning_and_recovery.xml",
             ],
         ),
         (f"share/{package_name}/launch", ["launch/navigation.launch.py"]),

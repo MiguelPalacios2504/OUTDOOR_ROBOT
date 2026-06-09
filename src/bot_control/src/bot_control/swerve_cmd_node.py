@@ -43,11 +43,131 @@ def _optimize_wheel_command(
     return angle, speed
 
 
-def _steer_alignment_scale(target_angle: float, current_angle: float) -> float:
+def _steer_alignment_scale(
+    target_angle: float,
+    current_angle: float,
+    *,
+    deadband_rad: float,
+    min_scale: float,
+    steer_limit: float,
+) -> float:
     """Reduce wheel drive while steering modules are still rotating."""
 
     error = abs(normalize_angle(target_angle - current_angle))
-    return max(0.35, 1.0 - (error / (0.5 * math.pi)))
+    if error <= deadband_rad:
+        return 1.0
+    return max(min_scale, 1.0 - (error / steer_limit))
+
+
+def _max_required_steer_angle(
+    body_twist: BodyTwist,
+    model: FourWIS4WIDKinematicModel,
+    current_steering_angles: List[float],
+) -> float:
+    max_angle = 0.0
+    for command, current_angle in zip(
+        model.inverse_kinematics(body_twist),
+        current_steering_angles,
+    ):
+        angle, _ = _optimize_wheel_command(
+            command.steering_angle,
+            command.linear_speed,
+            current_angle,
+        )
+        max_angle = max(max_angle, abs(angle))
+    return max_angle
+
+
+def _scale_twist_to_steer_limit(
+    body_twist: BodyTwist,
+    model: FourWIS4WIDKinematicModel,
+    current_steering_angles: List[float],
+    steer_limit: float,
+) -> BodyTwist:
+    """Uniformly scale twist until every wheel servo stays within ±steer_limit."""
+
+    if _max_required_steer_angle(body_twist, model, current_steering_angles) <= steer_limit + 1e-6:
+        return body_twist
+
+    low = 0.0
+    high = 1.0
+    for _ in range(16):
+        mid = 0.5 * (low + high)
+        trial = BodyTwist(
+            vx=body_twist.vx * mid,
+            vy=body_twist.vy * mid,
+            omega=body_twist.omega * mid,
+        )
+        if _max_required_steer_angle(trial, model, current_steering_angles) <= steer_limit:
+            low = mid
+        else:
+            high = mid
+
+    # Never scale all the way to zero — Nav2 often commands slow creep speeds (<0.05 m/s).
+    scale = max(low, 0.15)
+    return BodyTwist(
+        vx=body_twist.vx * scale,
+        vy=body_twist.vy * scale,
+        omega=body_twist.omega * scale,
+    )
+
+
+def _is_point_turn_request(
+    body_twist: BodyTwist,
+    *,
+    vx_threshold: float,
+    vy_threshold: float,
+    omega_threshold: float,
+) -> bool:
+    """Tank turn only for explicit in-place rotation (vx≈0, meaningful omega)."""
+
+    return (
+        abs(body_twist.vx) <= vx_threshold
+        and abs(body_twist.vy) <= vy_threshold
+        and abs(body_twist.omega) >= omega_threshold
+    )
+
+
+def _compute_point_turn(
+    omega: float,
+    current_steering_angles: List[float],
+    *,
+    model: FourWIS4WIDKinematicModel,
+    wheel_radius: float,
+    max_wheel_angular_speed: float,
+    steer_target: float,
+    steer_limit: float,
+) -> Tuple[List[float], List[float]]:
+    """Rotate in place with steers straight: left vs right wheels oppose."""
+
+    k = 4.0 * ((model.a * model.a) + (model.b * model.b))
+    side_linear = abs(omega) * k / (4.0 * model.b)
+    max_linear = max_wheel_angular_speed * wheel_radius
+    side_linear = min(side_linear, max_linear)
+
+    turn_sign = 1.0 if omega >= 0.0 else -1.0
+    # omega>0 (CCW): left wheels back, right wheels forward.
+    wheel_linear_speeds = [
+        -turn_sign * side_linear,
+        -turn_sign * side_linear,
+        turn_sign * side_linear,
+        turn_sign * side_linear,
+    ]
+
+    steering_positions = []
+    wheel_angular_speeds = []
+    for linear_speed, current_angle in zip(wheel_linear_speeds, current_steering_angles):
+        angle = max(-steer_limit, min(steer_limit, steer_target))
+        # Tank turn: full wheel torque; steers still move toward straight.
+        angular_speed = linear_speed / wheel_radius
+        angular_speed = max(
+            -max_wheel_angular_speed,
+            min(max_wheel_angular_speed, angular_speed),
+        )
+        steering_positions.append(angle)
+        wheel_angular_speeds.append(angular_speed)
+
+    return steering_positions, wheel_angular_speeds
 
 
 class SwerveCmdNode(Node):
@@ -60,11 +180,20 @@ class SwerveCmdNode(Node):
         self.declare_parameter("cmd_vel_topic", "/cmd_vel")
         self.declare_parameter("joint_state_topic", "/joint_states")
         self.declare_parameter("command_topic", "/swerve_cmd_joint_states")
-        self.declare_parameter("steering_angle_limit", 1.5708)
+        self.declare_parameter("steering_angle_limit", 0.7854)
+        self.declare_parameter("steer_alignment_min_scale", 0.45)
+        self.declare_parameter("steer_alignment_deadband_rad", 0.21)
         self.declare_parameter("max_wheel_angular_speed", 12.0)
         self.declare_parameter("control_rate_hz", 50.0)
         self.declare_parameter("cmd_vel_timeout_sec", 0.5)
         self.declare_parameter("use_direct_ik", True)
+        self.declare_parameter("enforce_front_forward", False)
+        self.declare_parameter("allow_reverse", True)
+        self.declare_parameter("enable_point_turn", True)
+        self.declare_parameter("point_turn_steer_target", 0.0)
+        self.declare_parameter("point_turn_vx_threshold", 0.01)
+        self.declare_parameter("point_turn_vy_threshold", 0.01)
+        self.declare_parameter("point_turn_omega_threshold", 0.35)
         self.declare_parameter("kx", 4.0)
         self.declare_parameter("ky", 4.0)
         self.declare_parameter("ktheta", 3.0)
@@ -77,10 +206,23 @@ class SwerveCmdNode(Node):
         self.joint_state_topic = str(self.get_parameter("joint_state_topic").value)
         self.command_topic = str(self.get_parameter("command_topic").value)
         self.steering_angle_limit = float(self.get_parameter("steering_angle_limit").value)
+        self.steer_alignment_min_scale = float(self.get_parameter("steer_alignment_min_scale").value)
+        self.steer_alignment_deadband_rad = float(
+            self.get_parameter("steer_alignment_deadband_rad").value
+        )
         self.max_wheel_angular_speed = float(self.get_parameter("max_wheel_angular_speed").value)
         self.control_rate_hz = float(self.get_parameter("control_rate_hz").value)
         self.cmd_vel_timeout_sec = float(self.get_parameter("cmd_vel_timeout_sec").value)
         self.use_direct_ik = bool(self.get_parameter("use_direct_ik").value)
+        self.enforce_front_forward = bool(self.get_parameter("enforce_front_forward").value)
+        self.allow_reverse = bool(self.get_parameter("allow_reverse").value)
+        self.enable_point_turn = bool(self.get_parameter("enable_point_turn").value)
+        self.point_turn_steer_target = float(self.get_parameter("point_turn_steer_target").value)
+        self.point_turn_vx_threshold = float(self.get_parameter("point_turn_vx_threshold").value)
+        self.point_turn_vy_threshold = float(self.get_parameter("point_turn_vy_threshold").value)
+        self.point_turn_omega_threshold = float(
+            self.get_parameter("point_turn_omega_threshold").value
+        )
         self.kx = float(self.get_parameter("kx").value)
         self.ky = float(self.get_parameter("ky").value)
         self.ktheta = float(self.get_parameter("ktheta").value)
@@ -178,7 +320,13 @@ class SwerveCmdNode(Node):
                 current_angle,
             )
             angle = max(-self.steering_angle_limit, min(self.steering_angle_limit, angle))
-            scale = _steer_alignment_scale(angle, current_angle)
+            scale = _steer_alignment_scale(
+                angle,
+                current_angle,
+                deadband_rad=self.steer_alignment_deadband_rad,
+                min_scale=self.steer_alignment_min_scale,
+                steer_limit=self.steering_angle_limit,
+            )
             angular_speed = (speed / self.wheel_radius) * scale
             angular_speed = max(
                 -self.max_wheel_angular_speed,
@@ -212,7 +360,13 @@ class SwerveCmdNode(Node):
             current_steering_angles,
         ):
             angle = max(-self.steering_angle_limit, min(self.steering_angle_limit, target_angle))
-            scale = _steer_alignment_scale(angle, current_angle)
+            scale = _steer_alignment_scale(
+                angle,
+                current_angle,
+                deadband_rad=self.steer_alignment_deadband_rad,
+                min_scale=self.steer_alignment_min_scale,
+                steer_limit=self.steering_angle_limit,
+            )
             angular_speed = (linear_speed / self.wheel_radius) * scale
             angular_speed = max(
                 -self.max_wheel_angular_speed,
@@ -255,23 +409,53 @@ class SwerveCmdNode(Node):
                 dt = None
         self.last_command_time = now
 
-        desired_body_twist = BodyTwist(
-            vx=float(self.latest_cmd_vel.linear.x),
-            vy=float(self.latest_cmd_vel.linear.y),
-            omega=float(self.latest_cmd_vel.angular.z),
-        )
-
-        if self.use_direct_ik:
-            steering_positions, wheel_angular_speeds = self._compute_direct_ik(
-                desired_body_twist,
-                current_steering_angles,
+        if self.enforce_front_forward and not self.allow_reverse:
+            vx_cmd = max(0.0, float(self.latest_cmd_vel.linear.x))
+            desired_body_twist = BodyTwist(
+                vx=vx_cmd,
+                vy=0.0,
+                omega=float(self.latest_cmd_vel.angular.z),
             )
         else:
-            steering_positions, wheel_angular_speeds = self._compute_tracking_control(
-                desired_body_twist,
-                current_steering_angles,
-                dt,
+            desired_body_twist = BodyTwist(
+                vx=float(self.latest_cmd_vel.linear.x),
+                vy=0.0 if self.enforce_front_forward else float(self.latest_cmd_vel.linear.y),
+                omega=float(self.latest_cmd_vel.angular.z),
             )
+        if self.enable_point_turn and _is_point_turn_request(
+            desired_body_twist,
+            vx_threshold=self.point_turn_vx_threshold,
+            vy_threshold=self.point_turn_vy_threshold,
+            omega_threshold=self.point_turn_omega_threshold,
+        ):
+            steering_positions, wheel_angular_speeds = _compute_point_turn(
+                desired_body_twist.omega,
+                current_steering_angles,
+                model=self.model,
+                wheel_radius=self.wheel_radius,
+                max_wheel_angular_speed=self.max_wheel_angular_speed,
+                steer_target=self.point_turn_steer_target,
+                steer_limit=self.steering_angle_limit,
+            )
+        else:
+            desired_body_twist = _scale_twist_to_steer_limit(
+                desired_body_twist,
+                self.model,
+                current_steering_angles,
+                self.steering_angle_limit,
+            )
+
+            if self.use_direct_ik:
+                steering_positions, wheel_angular_speeds = self._compute_direct_ik(
+                    desired_body_twist,
+                    current_steering_angles,
+                )
+            else:
+                steering_positions, wheel_angular_speeds = self._compute_tracking_control(
+                    desired_body_twist,
+                    current_steering_angles,
+                    dt,
+                )
 
         command = JointState()
         command.header.stamp = now.to_msg()

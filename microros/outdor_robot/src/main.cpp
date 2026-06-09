@@ -241,9 +241,16 @@ void loop() {
         motor2.setTargetRPM(0.0);
     }
 
+
+
+
     motor1.update();
     motor2.update();
 
+
+
+
+    
     static uint32_t last_states_ms = 0;
     if (microros_initialized && (millis() - last_states_ms >= STATES_PUBLISH_MS)) {
         last_states_ms = millis();

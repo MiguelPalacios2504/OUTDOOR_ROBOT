@@ -90,8 +90,9 @@
 
   <xacro:macro name="bot_robot" params="mesh_dir">
     <xacro:property name="mesh_uri_root" value="${mesh_dir}" />
-    <xacro:property name="front_steer_limit" value="1.5708" />
-    <xacro:property name="rear_steer_limit" value="1.5708" />
+    <!-- Per-wheel steering servo mechanical limit (±45 deg). -->
+    <xacro:property name="front_steer_limit" value="0.7854" />
+    <xacro:property name="rear_steer_limit" value="0.7854" />
     <xacro:property name="joint_effort" value="10" />
     <xacro:property name="joint_velocity" value="10" />
     <xacro:property name="joint_damping" value="0.1" />

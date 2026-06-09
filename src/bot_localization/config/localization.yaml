@@ -292,7 +292,7 @@ amcl:
     save_pose_rate: 0.5
     scan_topic: /scan
     set_initial_pose: true
-    initial_pose.x: 0.0
+    initial_pose.x: -0.0
     initial_pose.y: 0.0
     initial_pose.z: 0.0
     initial_pose.yaw: 0.0

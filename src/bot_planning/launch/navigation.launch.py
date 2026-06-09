@@ -10,7 +10,6 @@ from launch_ros.actions import LifecycleNode, Node
 
 def generate_launch_description():
     planning_share = Path(get_package_share_directory("bot_planning"))
-    bt_navigator_share = Path(get_package_share_directory("nav2_bt_navigator"))
 
     use_sim_time = LaunchConfiguration("use_sim_time")
     enable_terrain_cost = LaunchConfiguration("enable_terrain_cost")
@@ -21,14 +20,11 @@ def generate_launch_description():
 
     nav2_params = str(planning_share / "config" / "nav2.yaml")
     default_terrain_yaml = str(planning_share / "maps" / "terrain_cost.yaml")
-    # Local copy from Nav2 docs (see config/navigate_to_pose_w_replanning_and_recovery.xml).
     nav_to_pose_bt_xml = str(
         planning_share / "config" / "navigate_to_pose_w_replanning_and_recovery.xml"
     )
     nav_through_poses_bt_xml = str(
-        bt_navigator_share
-        / "behavior_trees"
-        / "navigate_through_poses_w_replanning_and_recovery.xml"
+        planning_share / "config" / "navigate_through_poses_w_replanning_and_recovery.xml"
     )
 
     sim_time_param = {"use_sim_time": use_sim_time}
