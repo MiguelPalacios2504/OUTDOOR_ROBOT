@@ -1,181 +1,175 @@
 #include "motor_controller.hpp"
 
-MotorController* MotorController::_instances[MAX_MOTORS] = {
-    nullptr, nullptr, nullptr, nullptr
-};
+MotorController* MotorController::instances_[2] = {nullptr, nullptr};
 
 MotorController::MotorController(
-    uint8_t motorID,
+    int motorId,
     uint8_t pwmPin,
     uint8_t dirPin,
-    uint8_t encoderPin
+    uint8_t encoderPin,
+    float countsPerRev
 )
-    : _motorID(motorID),
-      _pwmPin(pwmPin),
-      _dirPin(dirPin),
-      _encoderPin(encoderPin)
+    : motorId_(motorId),
+      pwmPin_(pwmPin),
+      dirPin_(dirPin),
+      encoderPin_(encoderPin),
+      countsPerRev_(countsPerRev)
 {
 }
 
 void MotorController::begin() {
-    pinMode(_dirPin, OUTPUT);
-    pinMode(_pwmPin, OUTPUT);
-    pinMode(_encoderPin, INPUT_PULLUP);
+    pinMode(pwmPin_, OUTPUT);
+    pinMode(dirPin_, OUTPUT);
+    pinMode(encoderPin_, INPUT_PULLUP);
 
-    if (_motorID < MAX_MOTORS) {
-        _instances[_motorID] = this;
+    digitalWrite(dirPin_, LOW);
+    analogWrite(pwmPin_, 0);
+
+    if (motorId_ >= 0 && motorId_ < 2) {
+        instances_[motorId_] = this;
+
+        if (motorId_ == 0) {
+            attachInterrupt(
+                digitalPinToInterrupt(encoderPin_),
+                encoderISR0,
+                RISING
+            );
+        } else if (motorId_ == 1) {
+            attachInterrupt(
+                digitalPinToInterrupt(encoderPin_),
+                encoderISR1,
+                RISING
+            );
+        }
     }
 
-    switch (_motorID) {
-        case 0:
-            attachInterrupt(digitalPinToInterrupt(_encoderPin), encoderISR0, RISING);
-            break;
-        case 1:
-            attachInterrupt(digitalPinToInterrupt(_encoderPin), encoderISR1, RISING);
-            break;
-        case 2:
-            attachInterrupt(digitalPinToInterrupt(_encoderPin), encoderISR2, RISING);
-            break;
-        case 3:
-            attachInterrupt(digitalPinToInterrupt(_encoderPin), encoderISR3, RISING);
-            break;
-    }
-
-    _lastUpdateTime = millis();
-
-    stop();
-}
-
-void MotorController::setPID(float kp, float ki, float kd) {
-    _kp = kp;
-    _ki = ki;
-    _kd = kd;
-}
-
-void MotorController::setTargetRPM(float targetRPM) {
-    _targetRPM = targetRPM;
-}
-
-void MotorController::update() {
-    unsigned long now = millis();
-    unsigned long dtMs = now - _lastUpdateTime;
-
-    if (dtMs < _sampleTimeMs) {
-        return;
-    }
-
-    _lastUpdateTime = now;
-
-    float dt = dtMs / 1000.0;
-
-    long pulses = getAndResetEncoderCount();
-
-    float revolutions = (float)pulses / _countsPerRev;
-    float measuredRPM = (revolutions / dt) * 60.0;
-
-    _currentRPM = 0.7 * _currentRPM + 0.3 * measuredRPM;
-
-    if (_targetRPM == 0) {
-        stop();
-        _integral = 0.0;
-        _previousError = 0.0;
-        _pwmOutput = 0;
-        return;
-    }
-
-    float targetAbsRPM = abs(_targetRPM);
-    float error = targetAbsRPM - _currentRPM;
-
-    _integral += error * dt;
-
-    if (_integral > 200) _integral = 200;
-    if (_integral < -200) _integral = -200;
-
-    float derivative = (error - _previousError) / dt;
-    _previousError = error;
-
-    float output = (_kp * error) + (_ki * _integral) + (_kd * derivative);
-
-    float minPWM = 25;
-    float desiredPWM = minPWM + output;
-
-    if (desiredPWM > 255) desiredPWM = 255;
-    if (desiredPWM < 0) desiredPWM = 0;
-
-    int maxStep = 5;
-
-    if (desiredPWM > _pwmOutput + maxStep) {
-        _pwmOutput += maxStep;
-    } else if (desiredPWM < _pwmOutput - maxStep) {
-        _pwmOutput -= maxStep;
-    } else {
-        _pwmOutput = desiredPWM;
-    }
-
-    if (_targetRPM > 0) {
-        moveForward(_pwmOutput);
-    } else {
-        moveBackward(_pwmOutput);
-    }
-}
-
-void MotorController::moveForward(uint8_t speed) {
-    digitalWrite(_dirPin, LOW);
-    analogWrite(_pwmPin, speed);
-}
-
-void MotorController::moveBackward(uint8_t speed) {
-    digitalWrite(_dirPin, HIGH);
-    analogWrite(_pwmPin, speed);
-}
-
-void MotorController::stop() {
-    analogWrite(_pwmPin, 0);
-}
-
-long MotorController::getEncoderCount() {
-    noInterrupts();
-    long count = _encoderCount;
-    interrupts();
-    return count;
-}
-
-long MotorController::getAndResetEncoderCount() {
-    noInterrupts();
-    long count = _encoderCount;
-    _encoderCount = 0;
-    interrupts();
-    return count;
-}
-
-float MotorController::getCurrentRPM() {
-    return _currentRPM;
-}
-
-void IRAM_ATTR MotorController::handleEncoderInterrupt() {
-    _encoderCount++;
+    lastTime_ = millis();
 }
 
 void IRAM_ATTR MotorController::encoderISR0() {
-    if (_instances[0] != nullptr) {
-        _instances[0]->handleEncoderInterrupt();
+    if (instances_[0] != nullptr) {
+        instances_[0]->handleEncoder();
     }
 }
 
 void IRAM_ATTR MotorController::encoderISR1() {
-    if (_instances[1] != nullptr) {
-        _instances[1]->handleEncoderInterrupt();
+    if (instances_[1] != nullptr) {
+        instances_[1]->handleEncoder();
     }
 }
 
-void IRAM_ATTR MotorController::encoderISR2() {
-    if (_instances[2] != nullptr) {
-        _instances[2]->handleEncoderInterrupt();
-    }
+void IRAM_ATTR MotorController::handleEncoder() {
+    encoderCount_++;
 }
 
-void IRAM_ATTR MotorController::encoderISR3() {
-    if (_instances[3] != nullptr) {
-        _instances[3]->handleEncoderInterrupt();
+void MotorController::setTargetRPM(float rpm) {
+    targetRPM_ = rpm;
+
+    if (targetRPM_ > 0.0) {
+        direction_ = 1;
+        digitalWrite(dirPin_, LOW);      // adelante
+    } else if (targetRPM_ < 0.0) {
+        direction_ = -1;
+        digitalWrite(dirPin_, HIGH);     // atrás
+    } else {
+        pwmOutput_ = 0;
+        integral_ = 0.0;
+        analogWrite(pwmPin_, 0);
+        return;
     }
+
+    float targetAbsRPM = fabs(targetRPM_);
+
+    pwmOutput_ = constrain(
+        (int)(targetAbsRPM * pwmPerRPM_),
+        0,
+        255
+    );
+
+    analogWrite(pwmPin_, pwmOutput_);
+}
+
+void MotorController::setPI(float kp, float ki) {
+    kp_ = kp;
+    ki_ = ki;
+}
+
+void MotorController::setFeedForward(float pwmPerRPM) {
+    pwmPerRPM_ = pwmPerRPM;
+}
+
+bool MotorController::update() {
+    unsigned long now = millis();
+
+    if (now - lastTime_ < sampleTimeMs_) {
+        return false;
+    }
+
+    noInterrupts();
+    long pulses = encoderCount_;
+    encoderCount_ = 0;
+    interrupts();
+
+    float dt = (now - lastTime_) / 1000.0;
+    lastTime_ = now;
+
+    lastPulses_ = pulses;
+
+    float revolutions = pulses / countsPerRev_;
+    float rpmAbs = (revolutions / dt) * 60.0;
+
+    if (direction_ < 0) {
+        measuredRPM_ = -rpmAbs;
+    } else {
+        measuredRPM_ = rpmAbs;
+    }
+
+    if (targetRPM_ == 0.0) {
+        pwmOutput_ = 0;
+        integral_ = 0.0;
+        analogWrite(pwmPin_, 0);
+        return true;
+    }
+
+    float targetAbsRPM = fabs(targetRPM_);
+    float measuredAbsRPM = fabs(measuredRPM_);
+
+    float error = targetAbsRPM - measuredAbsRPM;
+
+    // Zona muerta pequeña para evitar oscilaciones
+    if (fabs(error) < 1.0) {
+        error = 0.0;
+    }
+
+    integral_ += error * dt;
+
+    // Anti-windup
+    integral_ = constrain(integral_, -100.0, 100.0);
+
+    float feedforward = targetAbsRPM * pwmPerRPM_;
+    float correction = kp_ * error + ki_ * integral_;
+
+    float pwm = feedforward + correction;
+
+    pwmOutput_ = constrain((int)pwm, 0, 255);
+
+    analogWrite(pwmPin_, pwmOutput_);
+
+    return true;
+}
+
+float MotorController::getTargetRPM() const {
+    return targetRPM_;
+}
+
+float MotorController::getRPM() const {
+    return measuredRPM_;
+}
+
+int MotorController::getPWM() const {
+    return pwmOutput_;
+}
+
+long MotorController::getLastPulses() const {
+    return lastPulses_;
 }

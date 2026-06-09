@@ -22,18 +22,33 @@
 #define MOTOR1_WHEEL_INDEX  4
 #define MOTOR2_WHEEL_INDEX  5
 
-#define AGENT_PING_MS         2000
-#define AGENT_PING_TIMEOUT_MS  200
-#define AGENT_PING_RETRIES       3
-#define STATES_PUBLISH_MS       10
-#define CMD_TIMEOUT_MS          1000
+#define AGENT_PING_MS          2000
+#define AGENT_PING_TIMEOUT_MS   200
+#define AGENT_PING_RETRIES        3
+#define STATES_PUBLISH_MS        10
+#define CMD_TIMEOUT_MS         1000
 
-// micro-ROS: topic names without leading slash (matches /hw/* on ROS 2 side).
 #define TOPIC_JOINT_COMMANDS  "hw/joint_commands"
 #define TOPIC_JOINT_STATES    "hw/joint_states"
 
-MotorController motor1(0, PWM_PIN1, DIR_PIN1, ENCODER_PIN1);
-MotorController motor2(1, PWM_PIN2, DIR_PIN2, ENCODER_PIN2);
+const float COUNTS_PER_REV = 800.0;
+
+
+MotorController motor1(
+    0,
+    PWM_PIN1,
+    DIR_PIN1,
+    ENCODER_PIN1,
+    COUNTS_PER_REV
+);
+
+MotorController motor2(
+    1,
+    PWM_PIN2,
+    DIR_PIN2,
+    ENCODER_PIN2,
+    COUNTS_PER_REV
+);
 
 rcl_node_t node;
 rclc_executor_t executor;
@@ -41,6 +56,7 @@ rcl_allocator_t allocator;
 rclc_support_t support;
 rcl_publisher_t publisher;
 rcl_subscription_t subscriber;
+
 std_msgs__msg__Float64MultiArray inp_msg;
 std_msgs__msg__Float64MultiArray out_msg;
 
@@ -53,9 +69,8 @@ static void initMsgBuffer(std_msgs__msg__Float64MultiArray * msg) {
     msg->data.capacity = NUM_JOINTS;
     msg->data.size = NUM_JOINTS;
 
-    msg->layout.dim.data = (std_msgs__msg__MultiArrayDimension *)malloc(
-        sizeof(std_msgs__msg__MultiArrayDimension));
-    msg->layout.dim.capacity = 1;
+    msg->layout.dim.data = nullptr;
+    msg->layout.dim.capacity = 0;
     msg->layout.dim.size = 0;
     msg->layout.data_offset = 0;
 
@@ -69,6 +84,7 @@ static void freeMsgBuffer(std_msgs__msg__Float64MultiArray * msg) {
         free(msg->data.data);
         msg->data.data = nullptr;
     }
+
     msg->data.size = 0;
     msg->data.capacity = 0;
 
@@ -76,6 +92,7 @@ static void freeMsgBuffer(std_msgs__msg__Float64MultiArray * msg) {
         free(msg->layout.dim.data);
         msg->layout.dim.data = nullptr;
     }
+
     msg->layout.dim.size = 0;
     msg->layout.dim.capacity = 0;
 }
@@ -96,8 +113,12 @@ void cmd_callback(const void * msg_in) {
         return;
     }
 
-    motor1.setTargetRPM(radPerSecToRpm((float)msg->data.data[MOTOR1_WHEEL_INDEX]));
-    motor2.setTargetRPM(radPerSecToRpm((float)msg->data.data[MOTOR2_WHEEL_INDEX]));
+    float motor1_cmd_rpm = radPerSecToRpm((float)msg->data.data[MOTOR1_WHEEL_INDEX]);
+    float motor2_cmd_rpm = radPerSecToRpm((float)msg->data.data[MOTOR2_WHEEL_INDEX]);
+
+    motor1.setTargetRPM(motor1_cmd_rpm);
+    motor2.setTargetRPM(motor2_cmd_rpm);
+
     last_cmd_ms = millis();
 }
 
@@ -107,13 +128,19 @@ bool setup_micro_ros() {
     if (rclc_support_init(&support, 0, nullptr, &allocator) != RCL_RET_OK) {
         return false;
     }
-    if (rclc_node_init_default(&node, "outdoor_robot_firmware", "", &support) != RCL_RET_OK) {
+
+    if (rclc_node_init_default(
+            &node,
+            "outdoor_robot_firmware",
+            "",
+            &support) != RCL_RET_OK) {
         rclc_support_fini(&support);
         return false;
     }
 
     initMsgBuffer(&inp_msg);
     initMsgBuffer(&out_msg);
+
     if (inp_msg.data.data == nullptr || out_msg.data.data == nullptr) {
         rcl_node_fini(&node);
         rclc_support_fini(&support);
@@ -145,7 +172,11 @@ bool setup_micro_ros() {
         return false;
     }
 
-    if (rclc_executor_init(&executor, &support.context, 1, &allocator) != RCL_RET_OK) {
+    if (rclc_executor_init(
+            &executor,
+            &support.context,
+            1,
+            &allocator) != RCL_RET_OK) {
         rcl_subscription_fini(&subscriber, &node);
         rcl_publisher_fini(&publisher, &node);
         freeMsgBuffer(&inp_msg);
@@ -173,6 +204,7 @@ bool setup_micro_ros() {
 
     last_cmd_ms = millis();
     microros_initialized = true;
+
     return true;
 }
 
@@ -196,16 +228,28 @@ void deinit_micro_ros() {
     microros_initialized = false;
 }
 
+static bool pingAgent() {
+    return rmw_uros_ping_agent(
+        AGENT_PING_TIMEOUT_MS,
+        AGENT_PING_RETRIES
+    ) == RMW_RET_OK;
+}
+
 void setup() {
     Serial.begin(115200);
-    delay(500);
+    delay(1000);
 
     motor1.begin();
-    motor1.setPID(0.5, 0.35, 0.0);
+    motor1.setFeedForward(0.90);
+    motor1.setPI(0.9, 0.01);
     motor1.setTargetRPM(0.0);
 
+
+
+
     motor2.begin();
-    motor2.setPID(0.5, 0.35, 0.0);
+    motor2.setFeedForward(0.90);
+    motor2.setPI(0.9, 0.01);
     motor2.setTargetRPM(0.0);
 
     set_microros_serial_transports(Serial);
@@ -216,13 +260,10 @@ void setup() {
     }
 }
 
-static bool pingAgent() {
-    return rmw_uros_ping_agent(AGENT_PING_TIMEOUT_MS, AGENT_PING_RETRIES) == RMW_RET_OK;
-}
-
 void loop() {
     if (millis() - last_ping >= AGENT_PING_MS) {
         last_ping = millis();
+
         const bool agent_alive = pingAgent();
 
         if (agent_alive && !microros_initialized) {
@@ -241,28 +282,24 @@ void loop() {
         motor2.setTargetRPM(0.0);
     }
 
-
-
-
     motor1.update();
     motor2.update();
 
-
-
-
-    
     static uint32_t last_states_ms = 0;
+
     if (microros_initialized && (millis() - last_states_ms >= STATES_PUBLISH_MS)) {
         last_states_ms = millis();
 
-        for (size_t i = 0; i < NUM_STEER; ++i) {
+        for (size_t i = 0; i < NUM_JOINTS; ++i) {
             out_msg.data.data[i] = 0.0;
         }
 
-        out_msg.data.data[MOTOR1_WHEEL_INDEX] = rpmToRadPerSec(motor1.getCurrentRPM());
-        out_msg.data.data[MOTOR2_WHEEL_INDEX] = rpmToRadPerSec(motor2.getCurrentRPM());
-        out_msg.data.data[6] = 0.0;
-        out_msg.data.data[7] = 0.0;
+        out_msg.data.data[MOTOR1_WHEEL_INDEX] =
+            rpmToRadPerSec(motor1.getRPM());
+
+        out_msg.data.data[MOTOR2_WHEEL_INDEX] =
+            rpmToRadPerSec(motor2.getRPM());
+
         out_msg.data.size = NUM_JOINTS;
 
         rcl_publish(&publisher, &out_msg, NULL);
