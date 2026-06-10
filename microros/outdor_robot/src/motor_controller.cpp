@@ -1,6 +1,6 @@
 #include "motor_controller.hpp"
 
-MotorController* MotorController::instances_[2] = {nullptr, nullptr};
+MotorController* MotorController::instances_[4] = {nullptr, nullptr};
 
 MotorController::MotorController(
     int motorId,
@@ -16,7 +16,6 @@ MotorController::MotorController(
       countsPerRev_(countsPerRev)
 {
 }
-
 void MotorController::begin() {
     pinMode(pwmPin_, OUTPUT);
     pinMode(dirPin_, OUTPUT);
@@ -25,21 +24,17 @@ void MotorController::begin() {
     digitalWrite(dirPin_, LOW);
     analogWrite(pwmPin_, 0);
 
-    if (motorId_ >= 0 && motorId_ < 2) {
+    if (motorId_ >= 0 && motorId_ < 4) {
         instances_[motorId_] = this;
 
         if (motorId_ == 0) {
-            attachInterrupt(
-                digitalPinToInterrupt(encoderPin_),
-                encoderISR0,
-                RISING
-            );
+            attachInterrupt(digitalPinToInterrupt(encoderPin_), encoderISR0, RISING);
         } else if (motorId_ == 1) {
-            attachInterrupt(
-                digitalPinToInterrupt(encoderPin_),
-                encoderISR1,
-                RISING
-            );
+            attachInterrupt(digitalPinToInterrupt(encoderPin_), encoderISR1, RISING);
+        } else if (motorId_ == 2) {
+            attachInterrupt(digitalPinToInterrupt(encoderPin_), encoderISR2, RISING);
+        } else if (motorId_ == 3) {
+            attachInterrupt(digitalPinToInterrupt(encoderPin_), encoderISR3, RISING);
         }
     }
 
@@ -57,6 +52,19 @@ void IRAM_ATTR MotorController::encoderISR1() {
         instances_[1]->handleEncoder();
     }
 }
+
+void IRAM_ATTR MotorController::encoderISR2() {
+    if (instances_[2] != nullptr) {
+        instances_[2]->handleEncoder();
+    }
+}
+
+void IRAM_ATTR MotorController::encoderISR3() {
+    if (instances_[3] != nullptr) {
+        instances_[3]->handleEncoder();
+    }
+}
+
 
 void IRAM_ATTR MotorController::handleEncoder() {
     encoderCount_++;

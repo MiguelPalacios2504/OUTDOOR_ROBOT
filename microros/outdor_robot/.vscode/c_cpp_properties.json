@@ -10,6 +10,7 @@
             "includePath": [
                 "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/include",
                 "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/src",
+                "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/SCServo/src",
                 "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/micro_ros_platformio",
                 "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/micro_ros_platformio/libmicroros/include",
                 "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/micro_ros_platformio/platform_code",
@@ -250,6 +251,7 @@
                 "path": [
                     "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/include",
                     "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/src",
+                    "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/SCServo/src",
                     "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/micro_ros_platformio",
                     "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/micro_ros_platformio/libmicroros/include",
                     "/home/celeste/OUTDOOR_ROBOT/microros/outdor_robot/.pio/libdeps/esp32-evb/micro_ros_platformio/platform_code",

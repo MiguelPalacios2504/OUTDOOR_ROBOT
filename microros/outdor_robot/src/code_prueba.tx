@@ -1,21 +1,99 @@
 #include <Arduino.h>
 #include "motor_controller.hpp"
 
-#include <SCServo.h>
+#define PWM_PIN      18
+#define DIR_PIN      21
+#define ENCODER_PIN  23
 
-#include <micro_ros_platformio.h>
-#include <rcl/rcl.h>
-#include <rclc/rclc.h>
-#include <rclc/executor.h>
-#include <std_msgs/msg/float64_multi_array.h>
+// OJO:
+// Si con 581 pulsos en 0.6 s te sale 96.83 RPM,
+// entonces estás usando countsPerRev = 600.
+// Porque:
+// RPM = pulses / countsPerRev / dt * 60
+// 96.83 = 581 / 600 / 0.6 * 60
+const float COUNTS_PER_REV = 600.0;
 
-// ======================================================
-// Motor pins
-// ======================================================
+MotorController motor(
+    PWM_PIN,
+    DIR_PIN,
+    ENCODER_PIN,
+    COUNTS_PER_REV
+);
+
+void setup() {
+    Serial.begin(115200);
+    delay(1000);
+
+    motor.begin();
+
+    // Según tus datos:
+    // PWM 92 ≈ 96 RPM
+    // pwmPerRPM ≈ 92 / 96 = 0.95
+    motor.setFeedForward(0.95);
+
+    // Ganancias suaves para empezar
+    motor.setPI(0.5, 0.12);
+
+    motor.setTargetRPM(90.0);
+
+    Serial.println("PI motor controller started");
+}
+
+void loop() {
+    if (motor.update()) {
+        Serial.print("Target RPM: ");
+        Serial.print(motor.getTargetRPM());
+
+        Serial.print(" | Pulses: ");
+        Serial.print(motor.getLastPulses());
+
+        Serial.print(" | Measured RPM: ");
+        Serial.print(motor.getRPM());
+
+        Serial.print(" | PWM: ");
+        Serial.println(motor.getPWM());
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#include <Arduino.h>
+#include "motor_controller.hpp"
 
 // Motor 1
 #define PWM_PIN1      19
-#define DIR_PIN1      13
+#define DIR_PIN1      22
 #define ENCODER_PIN1  27
 
 // Motor 2
@@ -25,113 +103,15 @@
 
 // Motor 3
 #define PWM_PIN3      16
-#define DIR_PIN3      34
-#define ENCODER_PIN3  32  // plomo
+#define DIR_PIN3      4
+#define ENCODER_PIN3  32  //plomo
 
 // Motor 4
 #define PWM_PIN4      5
 #define DIR_PIN4      17
 #define ENCODER_PIN4  33
 
-// ======================================================
-// ST3215 servo bus
-// ======================================================
-
-#define SERVO_RX    4
-#define SERVO_TX    2
-#define SERVO_BAUD  1000000
-
-SMS_STS st3215_bus;
-
-// Servo IDs
-#define SERVO1_ID  11
-#define SERVO2_ID  12
-#define SERVO3_ID  13
-#define SERVO4_ID  14
-
-// ======================================================
-// Joint indexes
-// ======================================================
-
-#define NUM_STEER     4
-#define NUM_WHEEL     4
-#define NUM_JOINTS    (NUM_STEER + NUM_WHEEL)
-
-// Steering indexes
-#define SERVO1_STEER_INDEX  0
-#define SERVO2_STEER_INDEX  1
-#define SERVO3_STEER_INDEX  2
-#define SERVO4_STEER_INDEX  3
-
-// Wheel indexes
-#define MOTOR1_WHEEL_INDEX  4
-#define MOTOR2_WHEEL_INDEX  5
-#define MOTOR3_WHEEL_INDEX  6
-#define MOTOR4_WHEEL_INDEX  7
-
-// ======================================================
-// micro-ROS config
-// ======================================================
-
-#define AGENT_PING_MS          2000
-#define AGENT_PING_TIMEOUT_MS   200
-#define AGENT_PING_RETRIES        3
-#define STATES_PUBLISH_MS        10
-#define CMD_TIMEOUT_MS         1000
-
-#define TOPIC_JOINT_COMMANDS  "hw/joint_commands"
-#define TOPIC_JOINT_STATES    "hw/joint_states"
-
-// ======================================================
-// Motor config
-// ======================================================
-
 const float COUNTS_PER_REV = 800.0;
-
-// ======================================================
-// Servo config
-// ======================================================
-
-// ST3215 position range: usually 0 - 4095 for 360 degrees
-#define SERVO_CENTER_TICK  2048
-#define SERVO_MIN_TICK     0
-#define SERVO_MAX_TICK     4095
-
-const float SERVO_TICKS_PER_RAD = 4096.0f / (2.0f * PI);
-
-// Mechanical steering limit
-const float MAX_STEER_RAD = 1.57f;   // +/- 90 deg
-
-// Servo movement parameters
-const uint16_t SERVO_SPEED = 1500;
-const uint8_t SERVO_ACC = 50;
-
-// Change sign if a servo rotates in the opposite direction
-const int8_t SERVO_SIGN[4] = {
-    1,   // ID 11
-    1,   // ID 12
-    1,   // ID 13
-    1    // ID 14
-};
-
-// Mechanical offset for each servo, in radians
-const float SERVO_OFFSET_RAD[4] = {
-    0.0f,
-    0.0f,
-    0.0f,
-    0.0f
-};
-
-float last_servo_cmd_rad[4] = {
-    0.0f,
-    0.0f,
-    0.0f,
-    0.0f
-};
-
-// ======================================================
-// Motor objects
-// ======================================================
 
 MotorController motor1(
     0,
@@ -165,9 +145,160 @@ MotorController motor4(
     COUNTS_PER_REV
 );
 
-// ======================================================
-// micro-ROS objects
-// ======================================================
+void setup() {
+    Serial.begin(115200);
+    delay(1000);
+
+    motor1.begin();
+    motor2.begin();
+    motor3.begin();
+    motor4.begin();
+
+    motor1.setFeedForward(0.85);
+    motor2.setFeedForward(0.85);
+    motor3.setFeedForward(0.85);
+    motor4.setFeedForward(0.85);
+
+    motor1.setPI(0.08, 0.01);
+    motor2.setPI(0.08, 0.01);
+    motor3.setPI(0.06, 0.008);
+    motor4.setPI(0.06, 0.008);
+
+    motor1.setTargetRPM(60.0);
+    motor2.setTargetRPM(60.0);
+    motor3.setTargetRPM(60.0);
+    motor4.setTargetRPM(60.0);
+
+    Serial.println("PI 4 motor controller started");
+}
+
+void printMotorStatus(const char* name, MotorController& motor) {
+    Serial.print(name);
+    Serial.print(" | Target RPM: ");
+    Serial.print(motor.getTargetRPM());
+    Serial.print(" | Pulses: ");
+    Serial.print(motor.getLastPulses());
+    Serial.print(" | Measured RPM: ");
+    Serial.print(motor.getRPM());
+    Serial.print(" | PWM: ");
+    Serial.println(motor.getPWM());
+}
+
+void loop() {
+    if (motor1.update()) {
+        printMotorStatus("Motor 1", motor1);
+    }
+
+    if (motor2.update()) {
+        printMotorStatus("Motor 2", motor2);
+    }
+
+    if (motor3.update()) {
+        printMotorStatus("Motor 3", motor3);
+    }
+
+    if (motor4.update()) {
+        printMotorStatus("Motor 4", motor4);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#include <Arduino.h>
+#include "motor_controller.hpp"
+
+#include <micro_ros_platformio.h>
+#include <rcl/rcl.h>
+#include <rclc/rclc.h>
+#include <rclc/executor.h>
+#include <std_msgs/msg/float64_multi_array.h>
+
+#define PWM_PIN1      18
+#define DIR_PIN1      21
+#define ENCODER_PIN1  23
+
+#define PWM_PIN2      19
+#define DIR_PIN2      22
+#define ENCODER_PIN2  27
+
+// Motor 3
+#define PWM_PIN3      16
+#define DIR_PIN3      4
+#define ENCODER_PIN3  32  //plomo
+
+// Motor 4
+#define PWM_PIN4      5
+#define DIR_PIN4      17
+#define ENCODER_PIN4  33
+
+
+#define NUM_STEER     4
+#define NUM_WHEEL     4
+#define NUM_JOINTS    (NUM_STEER + NUM_WHEEL)
+
+#define MOTOR1_WHEEL_INDEX  4
+#define MOTOR2_WHEEL_INDEX  5
+
+#define AGENT_PING_MS          2000
+#define AGENT_PING_TIMEOUT_MS   200
+#define AGENT_PING_RETRIES        3
+#define STATES_PUBLISH_MS        10
+#define CMD_TIMEOUT_MS         1000
+
+#define TOPIC_JOINT_COMMANDS  "hw/joint_commands"
+#define TOPIC_JOINT_STATES    "hw/joint_states"
+
+const float COUNTS_PER_REV = 800.0;
+
+
+MotorController motor1(
+    0,
+    PWM_PIN1,
+    DIR_PIN1,
+    ENCODER_PIN1,
+    COUNTS_PER_REV
+);
+
+MotorController motor2(
+    1,
+    PWM_PIN2,
+    DIR_PIN2,
+    ENCODER_PIN2,
+    COUNTS_PER_REV
+);
+
+
+MotorController motor3(
+    2,
+    PWM_PIN3,
+    DIR_PIN3,
+    ENCODER_PIN3,
+    COUNTS_PER_REV
+);
+
+MotorController motor4(
+    3,
+    PWM_PIN4,
+    DIR_PIN4,
+    ENCODER_PIN4,
+    COUNTS_PER_REV
+);
 
 rcl_node_t node;
 rclc_executor_t executor;
@@ -182,10 +313,6 @@ std_msgs__msg__Float64MultiArray out_msg;
 bool microros_initialized = false;
 unsigned long last_ping = 0;
 uint32_t last_cmd_ms = 0;
-
-// ======================================================
-// Helper functions
-// ======================================================
 
 static void initMsgBuffer(std_msgs__msg__Float64MultiArray * msg) {
     msg->data.data = (double *)malloc(NUM_JOINTS * sizeof(double));
@@ -228,67 +355,6 @@ static float radPerSecToRpm(float rad_per_sec) {
     return rad_per_sec * (60.0f / (2.0f * PI));
 }
 
-static float clampFloat(float value, float min_value, float max_value) {
-    if (value < min_value) return min_value;
-    if (value > max_value) return max_value;
-    return value;
-}
-
-static int clampInt(int value, int min_value, int max_value) {
-    if (value < min_value) return min_value;
-    if (value > max_value) return max_value;
-    return value;
-}
-
-static int steerRadToServoTick(float angle_rad, int servo_index) {
-    angle_rad = clampFloat(angle_rad, -MAX_STEER_RAD, MAX_STEER_RAD);
-
-    float corrected_angle =
-        ((float)SERVO_SIGN[servo_index] * angle_rad) + SERVO_OFFSET_RAD[servo_index];
-
-    int target_tick =
-        SERVO_CENTER_TICK + (int)roundf(corrected_angle * SERVO_TICKS_PER_RAD);
-
-    return clampInt(target_tick, SERVO_MIN_TICK, SERVO_MAX_TICK);
-}
-
-static void writeServoAngle(uint8_t servo_id, int servo_index, float angle_rad) {
-    int target_tick = steerRadToServoTick(angle_rad, servo_index);
-
-    st3215_bus.WritePosEx(
-        servo_id,
-        target_tick,
-        SERVO_SPEED,
-        SERVO_ACC
-    );
-
-    last_servo_cmd_rad[servo_index] = angle_rad;
-}
-
-static void initServos() {
-    Serial1.begin(SERVO_BAUD, SERIAL_8N1, SERVO_RX, SERVO_TX);
-    st3215_bus.pSerial = &Serial1;
-
-    delay(500);
-
-    // Center all steering servos at startup
-    writeServoAngle(SERVO1_ID, 0, 0.0f);
-    delay(20);
-
-    writeServoAngle(SERVO2_ID, 1, 0.0f);
-    delay(20);
-
-    writeServoAngle(SERVO3_ID, 2, 0.0f);
-    delay(20);
-
-    writeServoAngle(SERVO4_ID, 3, 0.0f);
-    delay(20);
-}
-
-// ======================================================
-// Command callback
-// ======================================================
-
 void cmd_callback(const void * msg_in) {
     const std_msgs__msg__Float64MultiArray * msg =
         (const std_msgs__msg__Float64MultiArray *)msg_in;
@@ -297,51 +363,16 @@ void cmd_callback(const void * msg_in) {
         return;
     }
 
-    // ==================================================
-    // Steering servos
-    // Input command: radians
-    // data[0] to data[3]
-    // ==================================================
+    float motor1_cmd_rpm = radPerSecToRpm((float)msg->data.data[MOTOR1_WHEEL_INDEX]);
+    float motor2_cmd_rpm = radPerSecToRpm((float)msg->data.data[MOTOR2_WHEEL_INDEX]);
+    float motor3_cmd_rpm = radPerSecToRpm((float)msg->data.data[MOTOR1_WHEEL_INDEX]);
+    float motor4_cmd_rpm = radPerSecToRpm((float)msg->data.data[MOTOR2_WHEEL_INDEX]);
 
-    float servo1_cmd_rad = (float)msg->data.data[SERVO1_STEER_INDEX];
-    float servo2_cmd_rad = (float)msg->data.data[SERVO2_STEER_INDEX];
-    float servo3_cmd_rad = (float)msg->data.data[SERVO3_STEER_INDEX];
-    float servo4_cmd_rad = (float)msg->data.data[SERVO4_STEER_INDEX];
-
-    writeServoAngle(SERVO1_ID, 0, servo1_cmd_rad);
-    writeServoAngle(SERVO2_ID, 1, servo2_cmd_rad);
-    writeServoAngle(SERVO3_ID, 2, servo3_cmd_rad);
-    writeServoAngle(SERVO4_ID, 3, servo4_cmd_rad);
-
-    // ==================================================
-    // Wheel motors
-    // Input command: rad/s
-    // data[4] to data[7]
-    // ==================================================
-
-    float motor1_cmd_rpm =
-        radPerSecToRpm((float)msg->data.data[MOTOR1_WHEEL_INDEX]);
-
-    float motor2_cmd_rpm =
-        radPerSecToRpm((float)msg->data.data[MOTOR2_WHEEL_INDEX]);
-
-    float motor3_cmd_rpm =
-        radPerSecToRpm((float)msg->data.data[MOTOR3_WHEEL_INDEX]);
-
-    float motor4_cmd_rpm =
-        radPerSecToRpm((float)msg->data.data[MOTOR4_WHEEL_INDEX]);
-
-    motor1.setTargetRPM(-motor1_cmd_rpm);
-    motor2.setTargetRPM(-motor2_cmd_rpm);
-    motor3.setTargetRPM(motor3_cmd_rpm);
-    motor4.setTargetRPM(motor4_cmd_rpm);
+    motor1.setTargetRPM(motor1_cmd_rpm);
+    motor2.setTargetRPM(motor2_cmd_rpm);
 
     last_cmd_ms = millis();
 }
-
-// ======================================================
-// micro-ROS setup
-// ======================================================
 
 bool setup_micro_ros() {
     allocator = rcl_get_default_allocator();
@@ -363,8 +394,6 @@ bool setup_micro_ros() {
     initMsgBuffer(&out_msg);
 
     if (inp_msg.data.data == nullptr || out_msg.data.data == nullptr) {
-        freeMsgBuffer(&inp_msg);
-        freeMsgBuffer(&out_msg);
         rcl_node_fini(&node);
         rclc_support_fini(&support);
         return false;
@@ -438,8 +467,6 @@ void deinit_micro_ros() {
 
     motor1.setTargetRPM(0.0);
     motor2.setTargetRPM(0.0);
-    motor3.setTargetRPM(0.0);
-    motor4.setTargetRPM(0.0);
 
     rclc_executor_fini(&executor);
     rcl_subscription_fini(&subscriber, &node);
@@ -460,18 +487,10 @@ static bool pingAgent() {
     ) == RMW_RET_OK;
 }
 
-// ======================================================
-// Arduino setup
-// ======================================================
-
 void setup() {
     Serial.begin(115200);
     delay(1000);
 
-    // Init ST3215 steering servos
-    initServos();
-
-    // Init DC motors
     motor1.begin();
     motor2.begin();
     motor3.begin();
@@ -487,10 +506,11 @@ void setup() {
     motor3.setPI(0.06, 0.008);
     motor4.setPI(0.06, 0.008);
 
+
     motor1.setTargetRPM(0.0);
     motor2.setTargetRPM(0.0);
     motor3.setTargetRPM(0.0);
-    motor4.setTargetRPM(0.0);
+    motor4.setTargetRPM(0.0);    
 
     set_microros_serial_transports(Serial);
     delay(2000);
@@ -499,10 +519,6 @@ void setup() {
         setup_micro_ros();
     }
 }
-
-// ======================================================
-// Arduino loop
-// ======================================================
 
 void loop() {
     if (millis() - last_ping >= AGENT_PING_MS) {
@@ -526,14 +542,6 @@ void loop() {
         motor2.setTargetRPM(0.0);
         motor3.setTargetRPM(0.0);
         motor4.setTargetRPM(0.0);
-
-        // Optional: return steering to center when command is lost
-        /*
-        writeServoAngle(SERVO1_ID, 0, 0.0f);
-        writeServoAngle(SERVO2_ID, 1, 0.0f);
-        writeServoAngle(SERVO3_ID, 2, 0.0f);
-        writeServoAngle(SERVO4_ID, 3, 0.0f);
-        */
     }
 
     motor1.update();
@@ -550,24 +558,16 @@ void loop() {
             out_msg.data.data[i] = 0.0;
         }
 
-        // Steering states
-        // For now, publish last commanded angle.
-        out_msg.data.data[SERVO1_STEER_INDEX] = last_servo_cmd_rad[0];
-        out_msg.data.data[SERVO2_STEER_INDEX] = last_servo_cmd_rad[1];
-        out_msg.data.data[SERVO3_STEER_INDEX] = last_servo_cmd_rad[2];
-        out_msg.data.data[SERVO4_STEER_INDEX] = last_servo_cmd_rad[3];
-
-        // Wheel states
         out_msg.data.data[MOTOR1_WHEEL_INDEX] =
-            rpmToRadPerSec(-motor1.getRPM());
+            rpmToRadPerSec(motor1.getRPM());
 
         out_msg.data.data[MOTOR2_WHEEL_INDEX] =
-            rpmToRadPerSec(-motor2.getRPM());
+            rpmToRadPerSec(motor2.getRPM());
 
-        out_msg.data.data[MOTOR3_WHEEL_INDEX] =
+        out_msg.data.data[MOTOR2_WHEEL_INDEX] =
             rpmToRadPerSec(motor3.getRPM());
-
-        out_msg.data.data[MOTOR4_WHEEL_INDEX] =
+        
+        out_msg.data.data[MOTOR2_WHEEL_INDEX] =
             rpmToRadPerSec(motor4.getRPM());
 
         out_msg.data.size = NUM_JOINTS;

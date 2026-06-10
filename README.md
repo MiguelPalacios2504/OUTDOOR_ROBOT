@@ -130,8 +130,27 @@ lanzar real
 ros2 launch bot_bringup real_autonomy.launch.py 
 
 
-teleoperar teckado 
-ros2 run teleop_twist_keyboard teleop_twist_keyboard 
+### Teleop por teclado (solo comunicación, sin navegación)
+
+En la Raspberry Pi, con el ESP32 conectado por USB:
+
+```bash
+# Terminal 1 — agente micro-ROS
+ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/ttyUSB0 -b 115200
+
+# Terminal 2 — teclado + puente /cmd_vel -> /hw/joint_commands
+source install/setup.bash
+ros2 launch bot_control teleop.launch.py
+```
+
+Flujo: `teleop_twist_keyboard` publica `/cmd_vel` → `teleop_joint_commands_node` convierte a cinemática swerve → publica `/hw/joint_commands` (8 valores: 4 direcciones + 4 velocidades de rueda). El firmware responde en `/hw/joint_states`.
+
+Solo el puente (sin lanzar el teclado automáticamente):
+
+```bash
+ros2 launch bot_control teleop.launch.py run_keyboard:=false
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+```
 
 
 

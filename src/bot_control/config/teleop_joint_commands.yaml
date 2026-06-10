@@ -1,0 +1,8 @@
+teleop_joint_commands_node:
+  ros__parameters:
+    cmd_vel_topic: /cmd_vel
+    joint_commands_topic: /hw/joint_commands
+    wheel_radius: 0.052
+    track_width: 0.33
+    publish_rate_hz: 50.0
+    cmd_vel_timeout_sec: 0.5

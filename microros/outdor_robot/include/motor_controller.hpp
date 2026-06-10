@@ -54,10 +54,12 @@ private:
     unsigned long lastTime_ = 0;
     const unsigned long sampleTimeMs_ = 600;
 
-    static MotorController* instances_[2];
+    static MotorController* instances_[4];
 
     static void IRAM_ATTR encoderISR0();
     static void IRAM_ATTR encoderISR1();
+    static void IRAM_ATTR encoderISR2();
+    static void IRAM_ATTR encoderISR3();
 
     void IRAM_ATTR handleEncoder();
 };
