@@ -17,10 +17,11 @@ setup(
             [
                 "config/joint_command_bridge.yaml",
                 "config/swerve_cmd.yaml",
+                "config/teleop_joint_commands.yaml",
                 "config/ros2_controllers.yaml",
             ],
         ),
-        (f"share/{package_name}/launch", ["launch/control.launch.py"]),
+        (f"share/{package_name}/launch", ["launch/control.launch.py", "launch/teleop.launch.py"]),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
@@ -33,6 +34,7 @@ setup(
             "joint_command_bridge = bot_control.joint_command_bridge:main",
             "swerve_cmd_node = bot_control.swerve_cmd_node:main",
             "hw_firmware_mock = bot_control.hw_firmware_mock:main",
+            "teleop_joint_commands_node = bot_control.teleop_joint_commands_node:main",
         ],
     },
 )

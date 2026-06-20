@@ -22,6 +22,23 @@ External dependencies (vendored or via `bot_sources.repos`):
 - `csm` — scan matching
 - `ros2_laser_scan_matcher` — laser odometry
 - `robot_localization` — EKF filter (ROS package)
+- `microros/outdoor_robot` — ESP32 firmware (PlatformIO + micro-ROS serial)
+
+---
+
+## Teleoperación real (empezar aquí)
+
+Guía completa: **[`TELEOP.md`](TELEOP.md)**
+
+```bash
+# Terminal 1 — agent
+~/OUTDOOR_ROBOT/microros/scripts/run_agent.sh
+
+# Terminal 2 — teclado (terminal interactiva)
+~/OUTDOOR_ROBOT/microros/scripts/run_teleop_keyboard.sh
+```
+
+Firmware ESP32: [`microros/outdoor_robot/`](microros/outdoor_robot/)
 
 ---
 
@@ -55,7 +72,15 @@ The clean model is `bot_v1.urdf.xacro`; Gazebo and `ros2_control` are in `bot_v1
 
 ## `bot_bringup`
 
-**Role:** **Solo robot real** — `bringup.launch.py` (URDF + `control.launch.py`, `use_sim_time:=false`).
+**Role:** Robot real — bringup, teleop y stacks completos.
+
+| Launch | Uso |
+|--------|-----|
+| `teleop_real.launch.py` | Solo teleop micro-ROS (agent + puente) |
+| `real_robot.launch.py` | URDF + ros2_control + swerve |
+| `real_autonomy.launch.py` | Sensores + localización + Nav2 opcional |
+
+Teleop mínimo: ver [`TELEOP.md`](../../TELEOP.md) en la raíz del workspace.
 
 Simulación: `bot_gazebo`. Localización: `bot_localization`. Navegación: `bot_planning`.
 

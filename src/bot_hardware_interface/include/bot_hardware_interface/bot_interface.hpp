@@ -50,7 +50,7 @@ private:
 
   std::string joint_commands_topic_{"/hw/joint_commands"};
   std::string joint_states_topic_{"/hw/joint_states"};
-  double state_timeout_sec_{0.2};
+  double state_timeout_sec_{1.0};
 
   std::vector<double> hw_positions_;
   std::vector<double> hw_velocities_;
