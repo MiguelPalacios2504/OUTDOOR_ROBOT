@@ -2,48 +2,66 @@
 import rclpy
 from geometry_msgs.msg import Twist
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Float64MultiArray
 
-# /hw/joint_commands — mismo orden que el firmware ESP32
-# [0] servo1  f_left_steer   rad
-# [1] servo2  f_right_steer  rad
-# [2] servo3  b_leftsteer    rad
-# [3] servo4  b_rightsteer   rad
-# [4] motor1  f_leftwheel    rad/s
-# [5] motor2  f_rightwheel   rad/s
-# [6] motor3  b_leftwheel    rad/s
-# [7] motor4  b_rightwheel   rad/s
+# /hw/joint_commands — orden firmware ESP32
+# [0-3] servos rad  |  [4-7] motores rad/s (f_left, f_right, b_left, b_right)
 
 WHEEL_R = 0.052
+RATE_HZ = 50.0
+CMD_TIMEOUT = 0.5
 
 
 class TeleopHw(Node):
     def __init__(self):
         super().__init__("teleop_hw")
-        self.pub = self.create_publisher(Float64MultiArray, "/hw/joint_commands", 10)
-        self.create_subscription(Twist, "/cmd_vel", self.cb, 10)
 
-    def cb(self, msg: Twist):
-        vx = float(msg.linear.x)
-        wz = float(msg.angular.z)
+        pub_qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
+        sub_qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
 
-        left = (vx - 0.5 * wz) / WHEEL_R
-        right = (vx + 0.5 * wz) / WHEEL_R
+        self.cmd = Twist()
+        self.have_cmd = False
+        self.last_cmd_time = None
 
+        self.pub = self.create_publisher(Float64MultiArray, "/hw/joint_commands", pub_qos)
+        self.create_subscription(Twist, "/cmd_vel", self.on_cmd_vel, sub_qos)
+        self.create_timer(1.0 / RATE_HZ, self.on_timer)
+
+        self.get_logger().info("Publicando /hw/joint_commands a %.0f Hz (esperando /cmd_vel)" % RATE_HZ)
+
+    def on_cmd_vel(self, msg: Twist):
+        self.cmd = msg
+        self.have_cmd = True
+        self.last_cmd_time = self.get_clock().now()
+
+    def on_timer(self):
         out = Float64MultiArray()
-        out.data = [
-            0.0, 0.0, 0.0, 0.0,
-            left, right, left, right,
-        ]
+        out.data = [0.0] * 8
+
+        if self.have_cmd and self.last_cmd_time is not None:
+            age = (self.get_clock().now() - self.last_cmd_time).nanoseconds * 1e-9
+            if age <= CMD_TIMEOUT:
+                vx = float(self.cmd.linear.x)
+                wz = float(self.cmd.angular.z)
+                left = (vx - 0.5 * wz) / WHEEL_R
+                right = (vx + 0.5 * wz) / WHEEL_R
+                out.data[4] = left
+                out.data[5] = right
+                out.data[6] = left
+                out.data[7] = right
+
         self.pub.publish(out)
 
 
 def main():
     rclpy.init()
     node = TeleopHw()
-    rclpy.spin(node)
-    node.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(node)
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == "__main__":

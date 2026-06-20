@@ -1,0 +1,98 @@
+// Teleop directo por Serial — sin ROS2
+// Subir:  pio run -e teleop -t upload
+// Monitor: pio device monitor -e teleop
+// Teclas: i=adelante  ,=atras  j=izq  l=der  espacio=stop
+
+#include <Arduino.h>
+#include "motor_controller.hpp"
+
+#define PWM_PIN1      19
+#define DIR_PIN1      13
+#define ENCODER_PIN1  27
+#define PWM_PIN2      18
+#define DIR_PIN2      21
+#define ENCODER_PIN2  23
+#define PWM_PIN3      16
+#define DIR_PIN3      34
+#define ENCODER_PIN3  32
+#define PWM_PIN4      5
+#define DIR_PIN4      17
+#define ENCODER_PIN4  33
+
+#define RPM  80.0f
+
+const float COUNTS_PER_REV = 800.0f;
+
+MotorController motor1(0, PWM_PIN1, DIR_PIN1, ENCODER_PIN1, COUNTS_PER_REV);
+MotorController motor2(1, PWM_PIN2, DIR_PIN2, ENCODER_PIN2, COUNTS_PER_REV);
+MotorController motor3(2, PWM_PIN3, DIR_PIN3, ENCODER_PIN3, COUNTS_PER_REV);
+MotorController motor4(3, PWM_PIN4, DIR_PIN4, ENCODER_PIN4, COUNTS_PER_REV);
+
+void setMotors(float m1, float m2, float m3, float m4) {
+    motor1.setTargetRPM(m1);
+    motor2.setTargetRPM(m2);
+    motor3.setTargetRPM(m3);
+    motor4.setTargetRPM(m4);
+}
+
+void stopMotors() {
+    setMotors(0, 0, 0, 0);
+}
+
+void forward() {
+    // mismos signos que main.cpp (motor1/2 invertidos)
+    setMotors(-RPM, -RPM, RPM, RPM);
+}
+
+void backward() {
+    setMotors(RPM, RPM, -RPM, -RPM);
+}
+
+void turnLeft() {
+    setMotors(RPM, RPM, RPM, RPM);
+}
+
+void turnRight() {
+    setMotors(-RPM, -RPM, -RPM, -RPM);
+}
+
+void setup() {
+    Serial.begin(115200);
+    delay(500);
+
+    motor1.begin();
+    motor2.begin();
+    motor3.begin();
+    motor4.begin();
+
+    motor1.setFeedForward(0.85);
+    motor2.setFeedForward(0.85);
+    motor3.setFeedForward(0.85);
+    motor4.setFeedForward(0.85);
+    motor1.setPI(0.08, 0.01);
+    motor2.setPI(0.08, 0.01);
+    motor3.setPI(0.06, 0.008);
+    motor4.setPI(0.06, 0.008);
+
+    stopMotors();
+
+    Serial.println("TELEOP Serial listo. i adelante , atras j izq l der espacio stop");
+}
+
+void loop() {
+    if (Serial.available()) {
+        char c = Serial.read();
+        switch (c) {
+            case 'i': case 'I': forward();  Serial.println("-> adelante"); break;
+            case ',':         backward(); Serial.println("-> atras"); break;
+            case 'j': case 'J': turnLeft();  Serial.println("-> izq"); break;
+            case 'l': case 'L': turnRight(); Serial.println("-> der"); break;
+            case ' ':         stopMotors(); Serial.println("-> stop"); break;
+        }
+    }
+
+    motor1.update();
+    motor2.update();
+    motor3.update();
+    motor4.update();
+}

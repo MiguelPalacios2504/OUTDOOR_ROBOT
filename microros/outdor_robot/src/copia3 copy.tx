@@ -2,7 +2,6 @@
 #include "motor_controller.hpp"
 
 #include <micro_ros_platformio.h>
-#include <rmw_microros/rmw_microros.h>
 #include <rcl/rcl.h>
 #include <rclc/rclc.h>
 #include <rclc/executor.h>
@@ -39,8 +38,10 @@
 #define MOTOR4_WHEEL_INDEX  7
 
 
-#define AGENT_RETRY_MS         2000
-#define STATES_PUBLISH_MS        50
+#define AGENT_PING_MS          2000
+#define AGENT_PING_TIMEOUT_MS   200
+#define AGENT_PING_RETRIES        3
+#define STATES_PUBLISH_MS        10
 #define CMD_TIMEOUT_MS         1000
 
 #define TOPIC_JOINT_COMMANDS  "hw/joint_commands"
@@ -92,15 +93,12 @@ rcl_subscription_t subscriber;
 std_msgs__msg__Float64MultiArray inp_msg;
 std_msgs__msg__Float64MultiArray out_msg;
 
-static double inp_data[NUM_JOINTS];
-static double out_data[NUM_JOINTS];
-
 bool microros_initialized = false;
 unsigned long last_ping = 0;
 uint32_t last_cmd_ms = 0;
 
-static void initMsgBuffer(std_msgs__msg__Float64MultiArray * msg, double * buffer) {
-    msg->data.data = buffer;
+static void initMsgBuffer(std_msgs__msg__Float64MultiArray * msg) {
+    msg->data.data = (double *)malloc(NUM_JOINTS * sizeof(double));
     msg->data.capacity = NUM_JOINTS;
     msg->data.size = NUM_JOINTS;
 
@@ -110,14 +108,26 @@ static void initMsgBuffer(std_msgs__msg__Float64MultiArray * msg, double * buffe
     msg->layout.data_offset = 0;
 
     for (size_t i = 0; i < NUM_JOINTS; ++i) {
-        buffer[i] = 0.0;
+        msg->data.data[i] = 0.0;
     }
 }
 
-static void clearMsgBuffer(std_msgs__msg__Float64MultiArray * msg) {
-    msg->data.data = nullptr;
+static void freeMsgBuffer(std_msgs__msg__Float64MultiArray * msg) {
+    if (msg->data.data != nullptr) {
+        free(msg->data.data);
+        msg->data.data = nullptr;
+    }
+
     msg->data.size = 0;
     msg->data.capacity = 0;
+
+    if (msg->layout.dim.data != nullptr) {
+        free(msg->layout.dim.data);
+        msg->layout.dim.data = nullptr;
+    }
+
+    msg->layout.dim.size = 0;
+    msg->layout.dim.capacity = 0;
 }
 
 static float rpmToRadPerSec(float rpm) {
@@ -159,18 +169,11 @@ void cmd_callback(const void * msg_in) {
 
 
 bool setup_micro_ros() {
-    if (microros_initialized) {
-        return true;
-    }
-
     allocator = rcl_get_default_allocator();
 
     if (rclc_support_init(&support, 0, nullptr, &allocator) != RCL_RET_OK) {
         return false;
     }
-
-    rmw_uros_set_context_entity_creation_session_timeout(&support.context, 3000);
-    rmw_uros_sync_session(2000);
 
     if (rclc_node_init_default(
             &node,
@@ -181,16 +184,22 @@ bool setup_micro_ros() {
         return false;
     }
 
-    initMsgBuffer(&inp_msg, inp_data);
-    initMsgBuffer(&out_msg, out_data);
+    initMsgBuffer(&inp_msg);
+    initMsgBuffer(&out_msg);
+
+    if (inp_msg.data.data == nullptr || out_msg.data.data == nullptr) {
+        rcl_node_fini(&node);
+        rclc_support_fini(&support);
+        return false;
+    }
 
     if (rclc_publisher_init_default(
             &publisher,
             &node,
             ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64MultiArray),
             TOPIC_JOINT_STATES) != RCL_RET_OK) {
-        clearMsgBuffer(&inp_msg);
-        clearMsgBuffer(&out_msg);
+        freeMsgBuffer(&inp_msg);
+        freeMsgBuffer(&out_msg);
         rcl_node_fini(&node);
         rclc_support_fini(&support);
         return false;
@@ -202,8 +211,8 @@ bool setup_micro_ros() {
             ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64MultiArray),
             TOPIC_JOINT_COMMANDS) != RCL_RET_OK) {
         rcl_publisher_fini(&publisher, &node);
-        clearMsgBuffer(&inp_msg);
-        clearMsgBuffer(&out_msg);
+        freeMsgBuffer(&inp_msg);
+        freeMsgBuffer(&out_msg);
         rcl_node_fini(&node);
         rclc_support_fini(&support);
         return false;
@@ -216,8 +225,8 @@ bool setup_micro_ros() {
             &allocator) != RCL_RET_OK) {
         rcl_subscription_fini(&subscriber, &node);
         rcl_publisher_fini(&publisher, &node);
-        clearMsgBuffer(&inp_msg);
-        clearMsgBuffer(&out_msg);
+        freeMsgBuffer(&inp_msg);
+        freeMsgBuffer(&out_msg);
         rcl_node_fini(&node);
         rclc_support_fini(&support);
         return false;
@@ -232,8 +241,8 @@ bool setup_micro_ros() {
         rclc_executor_fini(&executor);
         rcl_subscription_fini(&subscriber, &node);
         rcl_publisher_fini(&publisher, &node);
-        clearMsgBuffer(&inp_msg);
-        clearMsgBuffer(&out_msg);
+        freeMsgBuffer(&inp_msg);
+        freeMsgBuffer(&out_msg);
         rcl_node_fini(&node);
         rclc_support_fini(&support);
         return false;
@@ -261,17 +270,22 @@ void deinit_micro_ros() {
     rcl_node_fini(&node);
     rclc_support_fini(&support);
 
-    clearMsgBuffer(&inp_msg);
-    clearMsgBuffer(&out_msg);
+    freeMsgBuffer(&inp_msg);
+    freeMsgBuffer(&out_msg);
 
     microros_initialized = false;
-    last_ping = millis();
+}
+
+static bool pingAgent() {
+    return rmw_uros_ping_agent(
+        AGENT_PING_TIMEOUT_MS,
+        AGENT_PING_RETRIES
+    ) == RMW_RET_OK;
 }
 
 void setup() {
     Serial.begin(115200);
-    set_microros_serial_transports(Serial);
-    delay(2000);
+    delay(1000);
 
     motor1.begin();
     motor2.begin();
@@ -288,21 +302,31 @@ void setup() {
     motor3.setPI(0.06, 0.008);
     motor4.setPI(0.06, 0.008);
 
+
     motor1.setTargetRPM(0.0);
     motor2.setTargetRPM(0.0);
     motor3.setTargetRPM(0.0);
-    motor4.setTargetRPM(0.0);
+    motor4.setTargetRPM(0.0);    
 
-    last_ping = millis();
-    setup_micro_ros();
+    set_microros_serial_transports(Serial);
+    delay(2000);
+
+    if (rmw_uros_ping_agent(500, 3) == RMW_RET_OK) {
+        setup_micro_ros();
+    }
 }
 
 void loop() {
-    // Sin sesión: reintentar cada AGENT_PING_MS (sin ping — el ping activo
-    // durante sesión corrompe el enlace serial).
-    if (!microros_initialized && (millis() - last_ping >= AGENT_RETRY_MS)) {
+    if (millis() - last_ping >= AGENT_PING_MS) {
         last_ping = millis();
-        setup_micro_ros();
+
+        const bool agent_alive = pingAgent();
+
+        if (agent_alive && !microros_initialized) {
+            setup_micro_ros();
+        } else if (!agent_alive && microros_initialized) {
+            deinit_micro_ros();
+        }
     }
 
     if (microros_initialized) {
@@ -344,8 +368,6 @@ void loop() {
 
         out_msg.data.size = NUM_JOINTS;
 
-        if (rcl_publish(&publisher, &out_msg, NULL) != RCL_RET_OK) {
-            deinit_micro_ros();
-        }
+        rcl_publish(&publisher, &out_msg, NULL);
     }
 }
