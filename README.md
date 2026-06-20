@@ -1,32 +1,69 @@
 # OUTDOOR_ROBOT — ROS 2 workspace
 
-This repository is a [ROS 2](https://docs.ros.org/) workspace for the outdoor mobile **bot** platform (four-wheel independent steer/drive, 4WIS/4WID). Packages live under `src/`. After building with `colcon`, outputs appear under `build/`, `install/`, and `log/` (do not commit those as source code).
+Workspace de [ROS 2 Jazzy](https://docs.ros.org/) para un robot móvil outdoor con **4 ruedas independientes (4WIS/4WID / swerve)**. El código fuente vive bajo `src/`; tras compilar con `colcon`, los artefactos aparecen en `build/`, `install/` y `log/` (no commitear como código fuente).
+
+Rama activa para el robot físico en Raspberry Pi: **`pi`**.
 
 ---
 
-## Package layout
+## Estructura del workspace
+
+| Carpeta | Contenido |
+|---------|-----------|
+| `src/` | Paquetes ROS 2 (código fuente) |
+| `microros/` | Firmware ESP32 + scripts de teleop real |
+| `maps/` | Mapas para localización (`arena_map`, `terrain_cost`) |
+| `scripts/` | Instalación de dependencias, utilidades |
+| `basic_scripts/`, `tools/`, `debug_logs/` | Scripts auxiliares y logs |
+| `build/`, `install/`, `log/` | Salida de `colcon build` |
+
+---
+
+## Paquetes ROS 2 (`src/`)
 
 ```text
 src/
-├── bot_description/   # URDF/Xacro, meshes, RViz, load_urdf.launch.py
-├── bot_control/       # Swerve kinematics, ros2_control config, spawners
-├── bot_gazebo/        # Gazebo Sim, gz_bridge, simulation launch stack
-├── bot_bringup/       # Real robot only — bringup.launch.py
-├── bot_localization/  # EKF, laser odom, SLAM, AMCL
-├── bot_planning/      # Nav2 planner, controller, behaviors
-└── bot_debug/         # CSV logging and plotting tools
+├── bot_description/        # URDF/Xacro, mallas, RViz
+├── bot_control/            # Cinemática swerve, ros2_control, nodos de control
+├── bot_gazebo/             # Simulación en Gazebo Sim
+├── bot_bringup/            # Robot real: teleop, bringup, autonomía
+├── bot_localization/       # EKF, laser odom, SLAM, AMCL
+├── bot_planning/           # Nav2 (planificación y control)
+├── bot_sensors/            # Sensores del robot real
+├── bot_hardware_interface/ # Interfaz hardware ROS 2
+├── bot_debug/              # Logging CSV y plots offline
+├── csm/                    # Scan matching (vendored)
+└── ros2_laser_scan_matcher/ # Laser odometry (vendored)
 ```
 
-External dependencies (vendored or via `bot_sources.repos`):
+Dependencias externas (vía `bot_sources.repos`):
 
-- `csm` — scan matching
-- `ros2_laser_scan_matcher` — laser odometry
-- `robot_localization` — EKF filter (ROS package)
-- `microros/outdoor_robot` — ESP32 firmware (PlatformIO + micro-ROS serial)
+- `robot_localization` — filtro EKF (paquete ROS)
+- `microros/outdoor_robot` — firmware ESP32 (PlatformIO + micro-ROS serial)
 
 ---
 
-## Teleoperación real (empezar aquí)
+## Firmware ESP32 (`microros/outdoor_robot/`)
+
+- **PlatformIO**, board ESP32, micro-ROS por serial con **ROS 2 Jazzy**
+- Controla **4 motores** con encoders (8 joints: steer + drive por rueda)
+- Topics: `/hw/joint_commands` y `/hw/joint_states`
+
+Scripts útiles en `microros/scripts/`:
+
+| Script | Uso |
+|--------|-----|
+| `run_agent.sh` | micro-ROS agent (Terminal 1) |
+| `run_teleop_keyboard.sh` | Teleop por teclado (Terminal 2) |
+| `upload.sh` | Flashear firmware al ESP32 |
+
+Documentación adicional: [`microros/README.md`](microros/README.md), [`microros/TROUBLESHOOTING.md`](microros/TROUBLESHOOTING.md)
+
+---
+
+## Modos de uso
+
+### 1. Teleop real (mínimo — sin Gazebo, sin Nav2)
 
 Guía completa: **[`TELEOP.md`](TELEOP.md)**
 
@@ -38,41 +75,23 @@ Guía completa: **[`TELEOP.md`](TELEOP.md)**
 ~/OUTDOOR_ROBOT/microros/scripts/run_teleop_keyboard.sh
 ```
 
-Firmware ESP32: [`microros/outdoor_robot/`](microros/outdoor_robot/)
+Flujo: teclado → `/cmd_vel` → `teleop_joint_commands_node` → `/hw/joint_commands` → ESP32 → motores.
 
----
+### 2. Simulación completa (3 terminales)
 
-## `bot_description`
+Un paquete por terminal (`cd OUTDOOR_ROBOT && source install/setup.bash`):
 
-**Role:** Canonical physical model of the bot.
+| # | Paquete | Comando |
+|---|---------|---------|
+| 1 | `bot_gazebo` | `ros2 launch bot_gazebo simulation.launch.py` |
+| 2 | `bot_localization` | `ros2 launch bot_localization localization.launch.py` |
+| 3 | `bot_planning` | `ros2 launch bot_planning navigation.launch.py use_sim_time:=true` |
 
-**Contents:** `urdf/bot_v1.*.xacro`, `meshes/`, `launch/load_urdf.launch.py`, `launch/rviz.launch.py`, `rviz/display.rviz`.
+Espera T1 antes de T2; T2 (`/map`, AMCL) antes de T3. En RViz (T2): **2D Goal Pose**.
 
-The clean model is `bot_v1.urdf.xacro`; Gazebo and `ros2_control` are in `bot_v1.gazebo.xacro`.
+### 3. Robot real con autonomía
 
----
-
-## `bot_control`
-
-**Role:** Swerve (`swerve_cmd_node`, `joint_command_bridge`) + `ros2_controllers.yaml`.
-
-**Launch:** `control.launch.py` (un solo launch en este paquete).
-
----
-
-## `bot_gazebo`
-
-**Role:** Gazebo Sim only — robot, lidar, camera, `ros2_control`, swerve control. **No** SLAM, AMCL, or Nav2.
-
-**Main launch:** `ros2 launch bot_gazebo simulation.launch.py`
-
-**Launch stack:** `simulation.launch.py` → `simulate_robot.launch.py` → `spawn_robot.launch.py` + `bot_control`.
-
----
-
-## `bot_bringup`
-
-**Role:** Robot real — bringup, teleop y stacks completos.
+Launches en `bot_bringup`:
 
 | Launch | Uso |
 |--------|-----|
@@ -80,47 +99,77 @@ The clean model is `bot_v1.urdf.xacro`; Gazebo and `ros2_control` are in `bot_v1
 | `real_robot.launch.py` | URDF + ros2_control + swerve |
 | `real_autonomy.launch.py` | Sensores + localización + Nav2 opcional |
 
-Teleop mínimo: ver [`TELEOP.md`](../../TELEOP.md) en la raíz del workspace.
+---
+
+## Detalle por paquete
+
+### `bot_description`
+
+Modelo físico canónico del bot.
+
+**Contenido:** `urdf/bot_v1.*.xacro`, `meshes/`, `launch/load_urdf.launch.py`, `launch/rviz.launch.py`, `rviz/display.rviz`.
+
+El modelo limpio es `bot_v1.urdf.xacro`; Gazebo y `ros2_control` están en `bot_v1.gazebo.xacro`.
+
+### `bot_control`
+
+Cinemática swerve (`swerve_cmd_node`, `joint_command_bridge`, `teleop_joint_commands_node`) + `ros2_controllers.yaml`.
+
+**Launch:** `control.launch.py`
+
+### `bot_gazebo`
+
+Solo Gazebo Sim — robot, lidar, cámara, `ros2_control`, control swerve. **Sin** SLAM, AMCL ni Nav2.
+
+**Launch principal:** `ros2 launch bot_gazebo simulation.launch.py`
+
+**Stack:** `simulation.launch.py` → `simulate_robot.launch.py` → `spawn_robot.launch.py` + `bot_control`.
+
+### `bot_bringup`
+
+Robot real — bringup, teleop y stacks completos. Ver [Modos de uso](#modos-de-uso) y [`TELEOP.md`](TELEOP.md).
 
 Simulación: `bot_gazebo`. Localización: `bot_localization`. Navegación: `bot_planning`.
 
----
+### `bot_localization`
 
-## `bot_localization`
+Estimación de estado y pose con mapa (EKF, laser odom, SLAM, AMCL). Ejecutar en una **segunda terminal** tras la sim.
 
-**Role:** State estimation and map-based pose (EKF, laser odom, SLAM, AMCL). Run in a **second terminal** after sim.
+**Launch principal:** `ros2 launch bot_localization localization.launch.py`
 
-**Main launch:** `ros2 launch bot_localization localization.launch.py`
+### `bot_planning`
 
----
+Planificación y control Nav2. Ejecutar en una **tercera terminal** tras localización.
 
-## `bot_planning`
+**Launch principal:** `ros2 launch bot_planning navigation.launch.py use_sim_time:=true`
 
-**Role:** Nav2 planning and control. Run in a **third terminal** after localization.
+Contrato de interfaz: `src/bot_planning/INTERFACE.md`
 
-**Main launch:** `ros2 launch bot_planning navigation.launch.py use_sim_time:=true`
+### `bot_sensors`
 
-Contract: `src/bot_planning/INTERFACE.md`
+Drivers y nodos de sensores del robot real (lidar, IMU, etc.).
 
----
+### `bot_hardware_interface`
 
-## `bot_debug`
+Interfaz `ros2_control` para el hardware del robot físico.
 
-**Role:** Debug CSV logging and offline plots.
+### `bot_debug`
+
+Logging CSV y plots offline para depuración.
 
 ---
 
 ## Build
 
 ```bash
-cd /path/to/OUTDOOR_ROBOT
+cd ~/OUTDOOR_ROBOT
 source /opt/ros/jazzy/setup.bash
-bash scripts/install_jazzy_sim_deps.sh   # once: ros2_control + gz_ros2_control
+bash scripts/install_jazzy_sim_deps.sh   # una vez: ros2_control + gz_ros2_control
 colcon build --symlink-install
 source install/setup.bash
 ```
 
-After renaming packages, use a **new terminal** or run `colcon build` in a shell that has **not** sourced an old `install/setup.bash` (stale `AMENT_PREFIX_PATH` entries for `robby_*`, `robot_*`, or `bot_estimation` cause launch errors). If problems persist:
+Tras renombrar paquetes, usa una **terminal nueva** o ejecuta `colcon build` en un shell que **no** haya hecho source de un `install/setup.bash` antiguo (entradas obsoletas de `AMENT_PREFIX_PATH` causan errores de launch). Si persisten problemas:
 
 ```bash
 rm -rf build install log
@@ -128,20 +177,8 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-### Simulación + localización + navegación
-
-Un paquete por terminal (`cd OUTDOOR_ROBOT && source install/setup.bash`):
-
-| # | Paquete | Comando |
-|---|---------|---------|
-| 1 | `bot_gazebo` | `ros2 launch bot_gazebo simulation.launch.py` |
-| 2 | `bot_localization` | `ros2 launch bot_localization localization.launch.py` (mapa + AMCL + RViz) |
-| 3 | `bot_planning` | `ros2 launch bot_planning navigation.launch.py use_sim_time:=true` |
-
-Espera T1 antes de T2; T2 (`/map`, AMCL) antes de T3. En RViz (T2): **2D Goal Pose**.
-
 ---
 
 ## Maps
 
-Saved maps for localization live under `maps/` at the workspace root (e.g. `maps/arena_map.yaml`).
+Mapas guardados para localización en `maps/` (p. ej. `maps/arena_map.yaml`, `maps/terrain_cost.yaml`).
