@@ -2,350 +2,214 @@
 #include "motor_controller.hpp"
 
 #include <micro_ros_platformio.h>
-#include <rmw_microros/rmw_microros.h>
 #include <rcl/rcl.h>
 #include <rclc/rclc.h>
 #include <rclc/executor.h>
 #include <std_msgs/msg/float64_multi_array.h>
 
-// Motor 1
 #define PWM_PIN1      19
 #define DIR_PIN1      13
 #define ENCODER_PIN1  27
-
-// Motor 2
 #define PWM_PIN2      18
 #define DIR_PIN2      21
 #define ENCODER_PIN2  23
-
-// Motor 3
 #define PWM_PIN3      16
 #define DIR_PIN3      34
-#define ENCODER_PIN3  32  //plomo
-
-// Motor 4
+#define ENCODER_PIN3  32
 #define PWM_PIN4      5
 #define DIR_PIN4      17
 #define ENCODER_PIN4  33
 
-
-#define NUM_STEER     4
-#define NUM_WHEEL     4
-#define NUM_JOINTS    (NUM_STEER + NUM_WHEEL)
-
+#define NUM_JOINTS    8
 #define MOTOR1_WHEEL_INDEX  4
 #define MOTOR2_WHEEL_INDEX  5
 #define MOTOR3_WHEEL_INDEX  6
 #define MOTOR4_WHEEL_INDEX  7
 
+#define STATES_PUBLISH_MS   100
+#define CMD_TIMEOUT_MS     1000
+#define RETRY_MS           1000
 
-#define AGENT_RETRY_MS         2000
-#define STATES_PUBLISH_MS        50
-#define CMD_TIMEOUT_MS         1000
+const float COUNTS_PER_REV = 800.0f;
 
-#define TOPIC_JOINT_COMMANDS  "hw/joint_commands"
-#define TOPIC_JOINT_STATES    "hw/joint_states"
+MotorController motor1(0, PWM_PIN1, DIR_PIN1, ENCODER_PIN1, COUNTS_PER_REV);
+MotorController motor2(1, PWM_PIN2, DIR_PIN2, ENCODER_PIN2, COUNTS_PER_REV);
+MotorController motor3(2, PWM_PIN3, DIR_PIN3, ENCODER_PIN3, COUNTS_PER_REV);
+MotorController motor4(3, PWM_PIN4, DIR_PIN4, ENCODER_PIN4, COUNTS_PER_REV);
 
-const float COUNTS_PER_REV = 800.0;
-
-
-MotorController motor1(
-    0,
-    PWM_PIN1,
-    DIR_PIN1,
-    ENCODER_PIN1,
-    COUNTS_PER_REV
-);
-
-MotorController motor2(
-    1,
-    PWM_PIN2,
-    DIR_PIN2,
-    ENCODER_PIN2,
-    COUNTS_PER_REV
-);
-
-
-MotorController motor3(
-    2,
-    PWM_PIN3,
-    DIR_PIN3,
-    ENCODER_PIN3,
-    COUNTS_PER_REV
-);
-
-MotorController motor4(
-    3,
-    PWM_PIN4,
-    DIR_PIN4,
-    ENCODER_PIN4,
-    COUNTS_PER_REV
-);
-
-rcl_node_t node;
-rclc_executor_t executor;
 rcl_allocator_t allocator;
 rclc_support_t support;
+rcl_node_t node;
 rcl_publisher_t publisher;
 rcl_subscription_t subscriber;
+rclc_executor_t executor;
 
-std_msgs__msg__Float64MultiArray inp_msg;
-std_msgs__msg__Float64MultiArray out_msg;
+std_msgs__msg__Float64MultiArray cmd_msg;
+std_msgs__msg__Float64MultiArray state_msg;
+static double cmd_data[NUM_JOINTS];
+static double state_data[NUM_JOINTS];
 
-static double inp_data[NUM_JOINTS];
-static double out_data[NUM_JOINTS];
+bool ros_ok = false;
+bool motors_ok = false;
+unsigned long last_retry = 0;
+unsigned long last_cmd_ms = 0;
 
-bool microros_initialized = false;
-unsigned long last_ping = 0;
-uint32_t last_cmd_ms = 0;
-
-static void initMsgBuffer(std_msgs__msg__Float64MultiArray * msg, double * buffer) {
-    msg->data.data = buffer;
+static void initBuffer(std_msgs__msg__Float64MultiArray * msg, double * buf) {
+    msg->data.data = buf;
     msg->data.capacity = NUM_JOINTS;
     msg->data.size = NUM_JOINTS;
-
     msg->layout.dim.data = nullptr;
     msg->layout.dim.capacity = 0;
     msg->layout.dim.size = 0;
     msg->layout.data_offset = 0;
-
-    for (size_t i = 0; i < NUM_JOINTS; ++i) {
-        buffer[i] = 0.0;
+    for (int i = 0; i < NUM_JOINTS; ++i) {
+        buf[i] = 0.0;
     }
 }
 
-static void clearMsgBuffer(std_msgs__msg__Float64MultiArray * msg) {
-    msg->data.data = nullptr;
-    msg->data.size = 0;
-    msg->data.capacity = 0;
-}
-
-static float rpmToRadPerSec(float rpm) {
+static float rpmToRad(float rpm) {
     return rpm * (2.0f * PI / 60.0f);
 }
 
-static float radPerSecToRpm(float rad_per_sec) {
-    return rad_per_sec * (60.0f / (2.0f * PI));
+static float radToRpm(float rad) {
+    return rad * (60.0f / (2.0f * PI));
 }
 
-
-void cmd_callback(const void * msg_in) {
-    const std_msgs__msg__Float64MultiArray * msg =
-        (const std_msgs__msg__Float64MultiArray *)msg_in;
-
+void cmdCb(const void * raw) {
+    const auto * msg = (const std_msgs__msg__Float64MultiArray *)raw;
     if (msg->data.size < NUM_JOINTS) {
         return;
     }
-
-    float motor1_cmd_rpm =
-        radPerSecToRpm((float)msg->data.data[MOTOR1_WHEEL_INDEX]);
-
-    float motor2_cmd_rpm =
-        radPerSecToRpm((float)msg->data.data[MOTOR2_WHEEL_INDEX]);
-
-    float motor3_cmd_rpm =
-        radPerSecToRpm((float)msg->data.data[MOTOR3_WHEEL_INDEX]);
-
-    float motor4_cmd_rpm =
-        radPerSecToRpm((float)msg->data.data[MOTOR4_WHEEL_INDEX]);
-
-    motor1.setTargetRPM(-motor1_cmd_rpm);
-    motor2.setTargetRPM(-motor2_cmd_rpm);
-    motor3.setTargetRPM(motor3_cmd_rpm);
-    motor4.setTargetRPM(motor4_cmd_rpm);
-
+    motor1.setTargetRPM(-radToRpm((float)msg->data.data[MOTOR1_WHEEL_INDEX]));
+    motor2.setTargetRPM(-radToRpm((float)msg->data.data[MOTOR2_WHEEL_INDEX]));
+    motor3.setTargetRPM(radToRpm((float)msg->data.data[MOTOR3_WHEEL_INDEX]));
+    motor4.setTargetRPM(radToRpm((float)msg->data.data[MOTOR4_WHEEL_INDEX]));
     last_cmd_ms = millis();
 }
 
+static void startMotors() {
+    if (motors_ok) {
+        return;
+    }
+    motor1.begin();
+    motor2.begin();
+    motor3.begin();
+    motor4.begin();
+    motor1.setFeedForward(0.85f);
+    motor2.setFeedForward(0.85f);
+    motor3.setFeedForward(0.85f);
+    motor4.setFeedForward(0.85f);
+    motor1.setPI(0.08f, 0.01f);
+    motor2.setPI(0.08f, 0.01f);
+    motor3.setPI(0.06f, 0.008f);
+    motor4.setPI(0.06f, 0.008f);
+    motors_ok = true;
+}
 
-bool setup_micro_ros() {
-    if (microros_initialized) {
+static bool startRos() {
+    if (ros_ok) {
         return true;
     }
 
     allocator = rcl_get_default_allocator();
-
     if (rclc_support_init(&support, 0, nullptr, &allocator) != RCL_RET_OK) {
         return false;
     }
-
-    rmw_uros_set_context_entity_creation_session_timeout(&support.context, 3000);
-    rmw_uros_sync_session(2000);
-
-    if (rclc_node_init_default(
-            &node,
-            "outdoor_robot_firmware",
-            "",
-            &support) != RCL_RET_OK) {
+    if (rclc_node_init_default(&node, "outdoor_robot_firmware", "", &support) != RCL_RET_OK) {
         rclc_support_fini(&support);
         return false;
     }
 
-    initMsgBuffer(&inp_msg, inp_data);
-    initMsgBuffer(&out_msg, out_data);
+    initBuffer(&cmd_msg, cmd_data);
+    initBuffer(&state_msg, state_data);
 
     if (rclc_publisher_init_default(
-            &publisher,
-            &node,
+            &publisher, &node,
             ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64MultiArray),
-            TOPIC_JOINT_STATES) != RCL_RET_OK) {
-        clearMsgBuffer(&inp_msg);
-        clearMsgBuffer(&out_msg);
+            "hw/joint_states") != RCL_RET_OK) {
         rcl_node_fini(&node);
         rclc_support_fini(&support);
         return false;
     }
-
     if (rclc_subscription_init_default(
-            &subscriber,
-            &node,
+            &subscriber, &node,
             ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64MultiArray),
-            TOPIC_JOINT_COMMANDS) != RCL_RET_OK) {
+            "hw/joint_commands") != RCL_RET_OK) {
         rcl_publisher_fini(&publisher, &node);
-        clearMsgBuffer(&inp_msg);
-        clearMsgBuffer(&out_msg);
         rcl_node_fini(&node);
         rclc_support_fini(&support);
         return false;
     }
-
-    if (rclc_executor_init(
-            &executor,
-            &support.context,
-            1,
-            &allocator) != RCL_RET_OK) {
+    if (rclc_executor_init(&executor, &support.context, 1, &allocator) != RCL_RET_OK) {
         rcl_subscription_fini(&subscriber, &node);
         rcl_publisher_fini(&publisher, &node);
-        clearMsgBuffer(&inp_msg);
-        clearMsgBuffer(&out_msg);
         rcl_node_fini(&node);
         rclc_support_fini(&support);
         return false;
     }
-
     if (rclc_executor_add_subscription(
-            &executor,
-            &subscriber,
-            &inp_msg,
-            cmd_callback,
-            ON_NEW_DATA) != RCL_RET_OK) {
+            &executor, &subscriber, &cmd_msg, &cmdCb, ON_NEW_DATA) != RCL_RET_OK) {
         rclc_executor_fini(&executor);
         rcl_subscription_fini(&subscriber, &node);
         rcl_publisher_fini(&publisher, &node);
-        clearMsgBuffer(&inp_msg);
-        clearMsgBuffer(&out_msg);
         rcl_node_fini(&node);
         rclc_support_fini(&support);
         return false;
     }
 
     last_cmd_ms = millis();
-    microros_initialized = true;
-
+    ros_ok = true;
+    startMotors();
     return true;
-}
-
-void deinit_micro_ros() {
-    if (!microros_initialized) {
-        return;
-    }
-
-    motor1.setTargetRPM(0.0);
-    motor2.setTargetRPM(0.0);
-    motor3.setTargetRPM(0.0);
-    motor4.setTargetRPM(0.0);
-
-    rclc_executor_fini(&executor);
-    rcl_subscription_fini(&subscriber, &node);
-    rcl_publisher_fini(&publisher, &node);
-    rcl_node_fini(&node);
-    rclc_support_fini(&support);
-
-    clearMsgBuffer(&inp_msg);
-    clearMsgBuffer(&out_msg);
-
-    microros_initialized = false;
-    last_ping = millis();
 }
 
 void setup() {
     Serial.begin(115200);
     set_microros_serial_transports(Serial);
     delay(2000);
-
-    motor1.begin();
-    motor2.begin();
-    motor3.begin();
-    motor4.begin();
-
-    motor1.setFeedForward(0.85);
-    motor2.setFeedForward(0.85);
-    motor3.setFeedForward(0.85);
-    motor4.setFeedForward(0.85);
-
-    motor1.setPI(0.08, 0.01);
-    motor2.setPI(0.08, 0.01);
-    motor3.setPI(0.06, 0.008);
-    motor4.setPI(0.06, 0.008);
-
-    motor1.setTargetRPM(0.0);
-    motor2.setTargetRPM(0.0);
-    motor3.setTargetRPM(0.0);
-    motor4.setTargetRPM(0.0);
-
-    last_ping = millis();
-    setup_micro_ros();
+    last_retry = 0;
 }
 
 void loop() {
-    // Sin sesión: reintentar cada AGENT_PING_MS (sin ping — el ping activo
-    // durante sesión corrompe el enlace serial).
-    if (!microros_initialized && (millis() - last_ping >= AGENT_RETRY_MS)) {
-        last_ping = millis();
-        setup_micro_ros();
-    }
-
-    if (microros_initialized) {
-        rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
-    }
-
-    if (last_cmd_ms > 0 && (millis() - last_cmd_ms > CMD_TIMEOUT_MS)) {
-        motor1.setTargetRPM(0.0);
-        motor2.setTargetRPM(0.0);
-        motor3.setTargetRPM(0.0);
-        motor4.setTargetRPM(0.0);
-    }
-
-    motor1.update();
-    motor2.update();
-    motor3.update();
-    motor4.update();
-
-    static uint32_t last_states_ms = 0;
-
-    if (microros_initialized && (millis() - last_states_ms >= STATES_PUBLISH_MS)) {
-        last_states_ms = millis();
-
-        for (size_t i = 0; i < NUM_JOINTS; ++i) {
-            out_msg.data.data[i] = 0.0;
+    if (!ros_ok) {
+        if (millis() - last_retry >= RETRY_MS) {
+            last_retry = millis();
+            startRos();
         }
-
-        out_msg.data.data[MOTOR1_WHEEL_INDEX] =
-            rpmToRadPerSec(-motor1.getRPM());
-
-        out_msg.data.data[MOTOR2_WHEEL_INDEX] =
-            rpmToRadPerSec(-motor2.getRPM());
-
-        out_msg.data.data[MOTOR3_WHEEL_INDEX] =
-            rpmToRadPerSec(motor3.getRPM());
-
-        out_msg.data.data[MOTOR4_WHEEL_INDEX] =
-            rpmToRadPerSec(motor4.getRPM());
-
-        out_msg.data.size = NUM_JOINTS;
-
-        if (rcl_publish(&publisher, &out_msg, NULL) != RCL_RET_OK) {
-            deinit_micro_ros();
-        }
+        return;
     }
+
+    rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100));
+
+    if (motors_ok && last_cmd_ms > 0 && (millis() - last_cmd_ms > CMD_TIMEOUT_MS)) {
+        motor1.setTargetRPM(0);
+        motor2.setTargetRPM(0);
+        motor3.setTargetRPM(0);
+        motor4.setTargetRPM(0);
+    }
+
+    if (motors_ok) {
+        motor1.update();
+        motor2.update();
+        motor3.update();
+        motor4.update();
+    }
+
+    static unsigned long last_pub = 0;
+    if (millis() - last_pub < STATES_PUBLISH_MS) {
+        return;
+    }
+    last_pub = millis();
+
+    for (int i = 0; i < NUM_JOINTS; ++i) {
+        state_data[i] = 0.0;
+    }
+    if (motors_ok) {
+        state_data[MOTOR1_WHEEL_INDEX] = rpmToRad(-motor1.getRPM());
+        state_data[MOTOR2_WHEEL_INDEX] = rpmToRad(-motor2.getRPM());
+        state_data[MOTOR3_WHEEL_INDEX] = rpmToRad(motor3.getRPM());
+        state_data[MOTOR4_WHEEL_INDEX] = rpmToRad(motor4.getRPM());
+    }
+    state_msg.data.size = NUM_JOINTS;
+    rcl_publish(&publisher, &state_msg, nullptr);
 }
