@@ -14,7 +14,9 @@ microros/
 ├── scripts/
 │   ├── upload.sh           # Compilar y flashear
 │   ├── run_agent.sh        # micro-ROS agent (terminal 1)
-│   └── run_teleop_keyboard.sh   # Teleop teclado (terminal 2)
+│   ├── run_steer_servos.sh # Servos dirección Pi (terminal 2)
+│   ├── run_steer_calibrate.sh  # Calibración manual servos
+│   └── run_teleop_keyboard.sh  # Teleop teclado (terminal 3)
 ├── TROUBLESHOOTING.md
 └── README.md               # este archivo
 ```
@@ -32,12 +34,33 @@ sudo chmod 666 /dev/ttyUSB0
 
 Ver guía completa de teleoperación: [`../TELEOP.md`](../TELEOP.md)
 
-Resumen rápido:
+### Arranque automático en la Pi (recomendado)
+
+Una sola vez en la Raspberry:
+
+```bash
+sudo ~/OUTDOOR_ROBOT/microros/scripts/install_pi_setup.sh
+```
+
+Eso configura:
+
+- **SSH por nombre** en cualquier WiFi: `ssh computer@outdoor-robot.local`
+- **IP fija por cable** (ethernet): `192.168.3.20`
+- **Servicios al boot**: `outdoor-robot-agent` (ESP32) + `outdoor-robot-steer` (servos)
+
+Tras encender la Pi + ESP32 + placa servos, solo abres SSH y lanzas el teleop.
+
+### Teleop manual (3 terminales)
 
 | Terminal | Comando |
 |----------|---------|
 | 1 | `~/OUTDOOR_ROBOT/microros/scripts/run_agent.sh` |
-| 2 | `~/OUTDOOR_ROBOT/microros/scripts/run_teleop_keyboard.sh` |
+| 2 | `~/OUTDOOR_ROBOT/microros/scripts/run_steer_servos.sh` |
+| 3 | `~/OUTDOOR_ROBOT/microros/scripts/run_teleop_keyboard.sh` |
+
+Los **tres** scripts deben estar corriendo para teleop completo (motores + dirección). Con `install_pi_setup.sh`, los terminales 1 y 2 arrancan solos al boot.
+
+No ejecutes `run_steer_calibrate.sh` a la vez (mismo puerto `/dev/ttyACM0`).
 
 ## Topics del firmware
 

@@ -9,25 +9,32 @@ Guía para mover el robot con el ESP32 y ROS 2 en la Raspberry Pi. **Sin Gazebo,
 ```text
 ┌─────────────────┐     serial USB      ┌──────────────────┐
 │  ESP32          │◄───────────────────►│  micro_ros_agent │
-│  outdoor_robot  │                     │  (Pi, terminal 1)│
-│  firmware       │                     └────────┬─────────┘
+│  outdoor_robot  │    /dev/ttyUSB0     │  (Pi, terminal 1)│
+│  motores 4-7    │                     └────────┬─────────┘
 └────────┬────────┘                              │ DDS
          │                                       │
-         │ /hw/joint_commands                    │
+         │ /hw/joint_commands [4-7]              │
          │ /hw/joint_states                      │
          ▼                                       ▼
 ┌────────────────────────────────────────────────────────────┐
-│  teleop_joint_commands_node  (Pi)                          │
+│  teleop_joint_commands_node  (Pi, terminal 3)              │
 │  /cmd_vel  ──►  /hw/joint_commands  (Float64MultiArray)    │
 └────────────────────────────▲───────────────────────────────┘
                              │
                     ┌────────┴────────┐
                     │ teleop_twist_   │
-                    │ keyboard (T2)     │
-                    └───────────────────┘
+                    │ keyboard        │
+                    └─────────────────┘
+
+┌─────────────────┐     serial USB      ┌──────────────────┐
+│  4× servos STS  │◄───────────────────►│  steer_servo_node│
+│  dirección      │    /dev/ttyACM0     │  (Pi, terminal 2)│
+└─────────────────┘                     └────────▲─────────┘
+                                                 │
+                              /hw/joint_commands [0-3]
 ```
 
-**Flujo:** teclado → `/cmd_vel` → `teleop_joint_commands_node` → `/hw/joint_commands` → ESP32 → motores.
+**Flujo:** teclado → `/cmd_vel` → `teleop_joint_commands_node` → `/hw/joint_commands` → servos (0–3, Pi) + motores (4–7, ESP32).
 
 ---
 
@@ -51,12 +58,34 @@ Guía para mover el robot con el ESP32 y ROS 2 en la Raspberry Pi. **Sin Gazebo,
    ```
 
 3. ESP32 conectado por USB (normalmente `/dev/ttyUSB0`).
+4. Placa de servos Feetech en la Pi por USB (normalmente `/dev/ttyACM0`).
+
+---
+
+## Arranque automático (Pi)
+
+Instalación única:
+
+```bash
+sudo ~/OUTDOOR_ROBOT/microros/scripts/install_pi_setup.sh
+```
+
+| Qué | Cómo |
+|-----|------|
+| SSH en cualquier WiFi | `ssh computer@outdoor-robot.local` |
+| SSH por cable ethernet | `ssh computer@192.168.3.20` |
+| Agent + servos al boot | systemd `outdoor-robot-agent` + `outdoor-robot-steer` |
+| Teleop (solo esto manual) | `run_teleop_keyboard.sh` tras conectar por SSH |
+
+Estado de servicios: `systemctl status outdoor-robot-agent outdoor-robot-steer`
 
 ---
 
 ## Arranque recomendado (3 terminales)
 
-### Terminal 1 — micro-ROS agent
+Los **tres** scripts deben estar corriendo. Sin `run_steer_servos.sh` los motores pueden moverse pero **la dirección no**.
+
+### Terminal 1 — micro-ROS agent (motores ESP32)
 
 Deja esta terminal **abierta y corriendo**:
 
@@ -66,7 +95,16 @@ Deja esta terminal **abierta y corriendo**:
 
 Espera ver `create_publisher` / `create_subscription`. Si no aparecen, pulsa **RESET** en el ESP32.
 
-### Terminal 2 — teleop teclado
+### Terminal 2 — servos de dirección (Pi)
+
+```bash
+source ~/OUTDOOR_ROBOT/install/setup.bash
+~/OUTDOOR_ROBOT/microros/scripts/run_steer_servos.sh
+```
+
+Espera ver `IDs detectados en /dev/ttyACM0` y `Escuchando /hw/joint_commands`.
+
+### Terminal 3 — teleop teclado
 
 **Debe ser una terminal interactiva** (con TTY). Si usas SSH: `ssh -t usuario@pi`.
 
@@ -74,13 +112,14 @@ Espera ver `create_publisher` / `create_subscription`. Si no aparecen, pulsa **R
 ~/OUTDOOR_ROBOT/microros/scripts/run_teleop_keyboard.sh
 ```
 
-Este script arranca el puente `/cmd_vel` → `/hw/joint_commands` y el teclado.
+Este script arranca el puente `/cmd_vel` → `/hw/joint_commands` y el teclado. **No** sustituye a `run_steer_servos.sh`.
 
-### Terminal 3 (opcional) — monitorizar
+### Terminal 4 (opcional) — monitorizar
 
 ```bash
 ros2 node list
 ros2 topic echo /hw/joint_states
+ros2 topic echo /hw/steer_states
 ros2 topic echo /cmd_vel
 ```
 
@@ -132,6 +171,7 @@ ros2 node list
 Deberías ver al menos:
 
 - `/outdoor_robot_firmware`
+- `/steer_servo_node`
 - `/teleop_joint_commands_node`
 - `/teleop_twist_keyboard` (cuando teleopéas)
 
@@ -146,17 +186,20 @@ ros2 topic pub /cmd_vel geometry_msgs/msg/Twist \
 
 ## Layout de `/hw/joint_commands`
 
-Array de 8 `float64` (rad/s en ruedas):
+Array de 8 `float64`:
 
-| Índice | Significado | Motor ESP32 |
-|--------|-------------|-------------|
-| 0–3 | Steering (rad) | Ignorado por ahora |
-| 4 | Vel. rueda delantera izq. | Motor 1 |
-| 5 | Vel. rueda delantera der. | Motor 2 |
-| 6 | Vel. rueda trasera izq. | Motor 3 |
-| 7 | Vel. rueda trasera der. | Motor 4 |
+| Índice | Significado | Hardware |
+|--------|-------------|----------|
+| 0 | `f_left_steer` (rad) | Servo id=11 (Pi) |
+| 1 | `f_right_steer` (rad) | Servo id=14 (Pi) |
+| 2 | `b_leftsteer` (rad) | Servo id=12 (Pi) |
+| 3 | `b_rightsteer` (rad) | Servo id=13 (Pi) |
+| 4 | Vel. rueda delantera izq. (rad/s) | Motor 1 (ESP32) |
+| 5 | Vel. rueda delantera der. (rad/s) | Motor 2 (ESP32) |
+| 6 | Vel. rueda trasera izq. (rad/s) | Motor 3 (ESP32) |
+| 7 | Vel. rueda trasera der. (rad/s) | Motor 4 (ESP32) |
 
-El nodo `teleop_joint_commands_node` usa modo **tanque**: misma velocidad en ruedas izquierdas (4,6) y derechas (5,7).
+Configuración de servos: [`src/bot_control/config/steer_servo.yaml`](src/bot_control/config/steer_servo.yaml). Calibración: `run_steer_calibrate.sh`.
 
 ---
 
@@ -164,7 +207,9 @@ El nodo `teleop_joint_commands_node` usa modo **tanque**: misma velocidad en rue
 
 | Síntoma | Causa probable | Solución |
 |---------|----------------|----------|
-| Solo `/outdoor_robot_firmware`, no se mueve | Falta nodo de teleop | Terminal 2: `run_teleop_keyboard.sh` |
+| Motores sí, dirección no | Falta `run_steer_servos.sh` | Terminal 2: `run_steer_servos.sh` |
+| Solo `/outdoor_robot_firmware`, no se mueve | Falta nodo de teleop | Terminal 3: `run_teleop_keyboard.sh` |
+| Servo no responde / puerto ocupado | Calibración o doble nodo steer | Cierra `run_steer_calibrate.sh` u otro `steer_servo_node` |
 | Teclado no responde | Terminal sin TTY | Terminal interactiva o `ssh -t` |
 | No hay topics | Agent no conectado | Reset ESP32 con agent corriendo |
 | `ros2 topic list` vacío en otra terminal | `ROS_DOMAIN_ID` distinto | `export ROS_DOMAIN_ID=0` en todas |

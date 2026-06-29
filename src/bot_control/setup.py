@@ -18,6 +18,7 @@ setup(
                 "config/joint_command_bridge.yaml",
                 "config/swerve_cmd.yaml",
                 "config/teleop_joint_commands.yaml",
+                "config/steer_servo.yaml",
                 "config/ros2_controllers.yaml",
             ],
         ),
@@ -35,6 +36,8 @@ setup(
             "swerve_cmd_node = bot_control.swerve_cmd_node:main",
             "hw_firmware_mock = bot_control.hw_firmware_mock:main",
             "teleop_joint_commands_node = bot_control.teleop_joint_commands_node:main",
+            "steer_servo_node = bot_control.steer_servo_node:main",
+            "steer_servo_calibrate = bot_control.steer_servo_calibrate:main",
         ],
     },
 )

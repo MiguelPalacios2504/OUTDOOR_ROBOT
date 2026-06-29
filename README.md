@@ -51,11 +51,13 @@ Dependencias externas (vía `bot_sources.repos`):
 
 Scripts útiles en `microros/scripts/`:
 
-| Script | Uso |
-|--------|-----|
-| `run_agent.sh` | micro-ROS agent (Terminal 1) |
-| `run_teleop_keyboard.sh` | Teleop por teclado (Terminal 2) |
-| `upload.sh` | Flashear firmware al ESP32 |
+| Script | Terminal | Uso |
+|--------|----------|-----|
+| `run_agent.sh` | 1 | micro-ROS agent (motores ESP32, `/dev/ttyUSB0`) |
+| `run_steer_servos.sh` | 2 | Servos de dirección (Pi, `/dev/ttyACM0`) |
+| `run_teleop_keyboard.sh` | 3 | Teleop por teclado (puente `/cmd_vel` → `/hw/joint_commands`) |
+| `run_steer_calibrate.sh` | — | Calibración manual de servos (no junto con los anteriores) |
+| `upload.sh` | — | Flashear firmware al ESP32 |
 
 Documentación adicional: [`microros/README.md`](microros/README.md), [`microros/TROUBLESHOOTING.md`](microros/TROUBLESHOOTING.md)
 
@@ -68,14 +70,19 @@ Documentación adicional: [`microros/README.md`](microros/README.md), [`microros
 Guía completa: **[`TELEOP.md`](TELEOP.md)**
 
 ```bash
-# Terminal 1 — agent
+# Terminal 1 — agent (motores ESP32)
 ~/OUTDOOR_ROBOT/microros/scripts/run_agent.sh
 
-# Terminal 2 — teclado (terminal interactiva)
+# Terminal 2 — servos de dirección (obligatorio)
+~/OUTDOOR_ROBOT/microros/scripts/run_steer_servos.sh
+
+# Terminal 3 — teclado (terminal interactiva)
 ~/OUTDOOR_ROBOT/microros/scripts/run_teleop_keyboard.sh
 ```
 
-Flujo: teclado → `/cmd_vel` → `teleop_joint_commands_node` → `/hw/joint_commands` → ESP32 → motores.
+Flujo: teclado → `/cmd_vel` → `teleop_joint_commands_node` → `/hw/joint_commands` → servos (índices 0–3, Pi) + motores (índices 4–7, ESP32).
+
+Guía detallada: [`TELEOP.md`](TELEOP.md)
 
 ### 2. Simulación completa (3 terminales)
 

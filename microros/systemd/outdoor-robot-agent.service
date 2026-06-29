@@ -1,0 +1,20 @@
+[Unit]
+Description=OUTDOOR_ROBOT micro-ROS agent (ESP32 /dev/ttyUSB0)
+After=network-online.target
+Wants=network-online.target
+PartOf=outdoor-robot.target
+
+[Service]
+Type=simple
+User=computer
+Environment=HOME=/home/computer
+WorkingDirectory=/home/computer
+ExecStartPre=/home/computer/OUTDOOR_ROBOT/microros/scripts/wait-for-device.sh /dev/ttyUSB0 300
+ExecStart=/home/computer/OUTDOOR_ROBOT/microros/scripts/run_agent_service.sh /dev/ttyUSB0
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=outdoor-robot.target

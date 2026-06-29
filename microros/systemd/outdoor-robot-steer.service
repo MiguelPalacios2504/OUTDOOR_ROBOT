@@ -1,0 +1,20 @@
+[Unit]
+Description=OUTDOOR_ROBOT steering servos (/dev/ttyACM0)
+After=network-online.target
+Wants=network-online.target
+PartOf=outdoor-robot.target
+
+[Service]
+Type=simple
+User=computer
+Environment=HOME=/home/computer
+WorkingDirectory=/home/computer
+ExecStartPre=/home/computer/OUTDOOR_ROBOT/microros/scripts/wait-for-device.sh /dev/ttyACM0 300
+ExecStart=/home/computer/OUTDOOR_ROBOT/microros/scripts/run_steer_service.sh
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=outdoor-robot.target

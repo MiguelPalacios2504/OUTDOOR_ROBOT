@@ -1,0 +1,7 @@
+[Unit]
+Description=OUTDOOR_ROBOT base stack (agent + steer servos)
+After=network-online.target
+Wants=outdoor-robot-agent.service outdoor-robot-steer.service
+
+[Install]
+WantedBy=multi-user.target

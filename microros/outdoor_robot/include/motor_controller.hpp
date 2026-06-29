@@ -3,65 +3,38 @@
 
 #include <Arduino.h>
 
+enum class DriveMode {
+    PwmDir,   // PWM + pin de dirección (motores 1 y 2)
+    In1In2    // DBH-1A: IN1=PWM adelante, IN2=PWM atrás (motores 3 y 4)
+};
+
 class MotorController {
 public:
-    MotorController(
-        int motorId,
-        uint8_t pwmPin,
-        uint8_t dirPin,
-        uint8_t encoderPin,
-        float countsPerRev
-    );
+    MotorController(uint8_t pinA, uint8_t pinB, DriveMode mode = DriveMode::PwmDir);
 
     void begin();
-    bool update();
-
     void setTargetRPM(float rpm);
-    void setPI(float kp, float ki);
     void setFeedForward(float pwmPerRPM);
 
     float getTargetRPM() const;
     float getRPM() const;
     int getPWM() const;
-    long getLastPulses() const;
 
 private:
-    int motorId_;
-
-    uint8_t pwmPin_;
-    uint8_t dirPin_;
-    uint8_t encoderPin_;
-
-    float countsPerRev_;
-
-    volatile long encoderCount_ = 0;
+    DriveMode mode_;
+    uint8_t pinA_;
+    uint8_t pinB_;
 
     float targetRPM_ = 0.0;
-    float measuredRPM_ = 0.0;
-
-    float kp_ = 0.9;
-    float ki_ = 0.01;
 
     float pwmPerRPM_ = 0.90;
-
-    float integral_ = 0.0;
 
     int pwmOutput_ = 0;
     int direction_ = 1;
 
-    long lastPulses_ = 0;
-
-    unsigned long lastTime_ = 0;
-    const unsigned long sampleTimeMs_ = 600;
-
-    static MotorController* instances_[4];
-
-    static void IRAM_ATTR encoderISR0();
-    static void IRAM_ATTR encoderISR1();
-    static void IRAM_ATTR encoderISR2();
-    static void IRAM_ATTR encoderISR3();
-
-    void IRAM_ATTR handleEncoder();
+    void stopMotor();
+    void applyPwmDir(float rpm);
+    void applyIn1In2(float rpm);
 };
 
 #endif

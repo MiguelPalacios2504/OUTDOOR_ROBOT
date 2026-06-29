@@ -1,0 +1,30 @@
+steer_servo_node:
+  ros__parameters:
+    use_single_bus: true
+    serial_port: /dev/ttyACM0
+    serial_ports:
+      - /dev/ttyACM0
+      - /dev/ttyACM1
+      - /dev/ttyACM2
+      - /dev/ttyACM3
+    baud_rate: 1000000
+    protocol_end: 1
+    # Orden: f_left_steer, f_right_steer, b_leftsteer, b_rightsteer
+    # Calibración manual 2026-06-26 (neutral al inicio)
+    # FL id=11: cent=3590 +lim=3849 -lim=4
+    # FR id=14: cent=2564 +lim=3846 -lim=2
+    # BL id=12: cent=515 +lim=3845 -lim=2
+    # BR id=13: cent=1286 +lim=3847 -lim=5
+    servo_ids: [11, 14, 12, 13]
+    center_counts: [3590, 2564, 515, 1286]
+    counts_plus_90: [3849, 3846, 3845, 3847]
+    counts_minus_90: [4, 2, 2, 5]
+    steering_angle_limit_deg: 45.0
+    move_time_ms: 400
+    move_acc: 20
+    control_rate_hz: 50.0
+    command_timeout_sec: 0.5
+    ping_retries: 3
+    require_all_servos: true
+    joint_commands_topic: /hw/joint_commands
+    steer_states_topic: /hw/steer_states

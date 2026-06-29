@@ -9,16 +9,13 @@
 
 #define PWM_PIN1      19
 #define DIR_PIN1      13
-#define ENCODER_PIN1  27
 #define PWM_PIN2      18
 #define DIR_PIN2      21
-#define ENCODER_PIN2  23
-#define PWM_PIN3      16
-#define DIR_PIN3      34
-#define ENCODER_PIN3  32
-#define PWM_PIN4      5
-#define DIR_PIN4      17
-#define ENCODER_PIN4  33
+// DBH-1A: IN1 = PWM adelante, IN2 = PWM atrás
+#define IN1_PIN3      16
+#define IN2_PIN3      26
+#define IN1_PIN4      5
+#define IN2_PIN4      17
 
 #define NUM_JOINTS    8
 #define MOTOR1_WHEEL_INDEX  4
@@ -30,12 +27,10 @@
 #define CMD_TIMEOUT_MS     1000
 #define RETRY_MS           1000
 
-const float COUNTS_PER_REV = 800.0f;
-
-MotorController motor1(0, PWM_PIN1, DIR_PIN1, ENCODER_PIN1, COUNTS_PER_REV);
-MotorController motor2(1, PWM_PIN2, DIR_PIN2, ENCODER_PIN2, COUNTS_PER_REV);
-MotorController motor3(2, PWM_PIN3, DIR_PIN3, ENCODER_PIN3, COUNTS_PER_REV);
-MotorController motor4(3, PWM_PIN4, DIR_PIN4, ENCODER_PIN4, COUNTS_PER_REV);
+MotorController motor1(PWM_PIN1, DIR_PIN1);
+MotorController motor2(PWM_PIN2, DIR_PIN2);
+MotorController motor3(IN1_PIN3, IN2_PIN3, DriveMode::In1In2);
+MotorController motor4(IN1_PIN4, IN2_PIN4, DriveMode::In1In2);
 
 rcl_allocator_t allocator;
 rclc_support_t support;
@@ -99,10 +94,6 @@ static void startMotors() {
     motor2.setFeedForward(0.85f);
     motor3.setFeedForward(0.85f);
     motor4.setFeedForward(0.85f);
-    motor1.setPI(0.08f, 0.01f);
-    motor2.setPI(0.08f, 0.01f);
-    motor3.setPI(0.06f, 0.008f);
-    motor4.setPI(0.06f, 0.008f);
     motors_ok = true;
 }
 
@@ -186,13 +177,6 @@ void loop() {
         motor2.setTargetRPM(0);
         motor3.setTargetRPM(0);
         motor4.setTargetRPM(0);
-    }
-
-    if (motors_ok) {
-        motor1.update();
-        motor2.update();
-        motor3.update();
-        motor4.update();
     }
 
     static unsigned long last_pub = 0;

@@ -5,7 +5,7 @@ set -e
 
 SERIAL="${1:-/dev/ttyUSB0}"
 
-sudo systemctl stop robot_bringup.service 2>/dev/null || true
+sudo systemctl stop robot_bringup.service outdoor-robot-agent.service 2>/dev/null || true
 pkill -f micro_ros_agent 2>/dev/null || true
 sleep 1
 
